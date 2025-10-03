@@ -98,16 +98,16 @@
                             <ComboBox fx:id="recordTypeComboBox" prefHeight="25.0" prefWidth="123.0" promptText="Record Type" styleClass="tool_bar_dropdown" stylesheets="@styles.css">
                                 <items>
                                     <FXCollections fx:factory="observableArrayList">
-                                        <String fx:value="pax" />
-                                        <String fx:value="crew" />
+                                        <String fx:value="PAX" />
+                                        <String fx:value="CREW" />
                                     </FXCollections>
                                 </items>
                             </ComboBox>
                         <ComboBox fx:id="dataTypeComboBox" minWidth="114.0" prefHeight="25.0" prefWidth="107.0" promptText="Data Type" styleClass="tool_bar_dropdown" stylesheets="@styles.css">
                            <items>
                               <FXCollections fx:factory="observableArrayList">
-                                 <String fx:value="pax" />
-                                 <String fx:value="crew" />
+                                 <String fx:value="API" />
+                                 <String fx:value="PNR" />
                               </FXCollections>
                            </items>
                         </ComboBox>

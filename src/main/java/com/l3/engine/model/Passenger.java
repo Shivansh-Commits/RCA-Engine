@@ -4,7 +4,17 @@ import java.util.*;
 
 public class Passenger {
     private String name; // normalized name as displayed
-    private String doc;  // doc number
+    private String docNum;  // doc number
+
+    public String getDocType() {
+        return "("+docType+")";
+    }
+
+    public void setDocType(String docType) {
+        this.docType = docType;
+    }
+
+    private String docType; // doc type
     private String dtm;  // date
     private String recordedKey; // name|doc|dtm (normalized name)
     private String sources; // CSV of sources
@@ -14,19 +24,21 @@ public class Passenger {
     private List<String> missingSegments = new ArrayList<>();
     private List<String> miscFlags = new ArrayList<>();
 
-    public Passenger(String name, String doc, String dtm, String source) {
+    public Passenger(String name, String docNum, String dtm, String source,String docType) {
         this.name = name == null ? "" : name;
-        this.doc = doc == null ? "" : doc;
+        this.docNum = docNum == null ? "" : docNum;
         this.dtm = dtm == null ? "" : dtm;
         this.sources = source == null ? "" : source;
         this.count = 1;
-        this.recordedKey = name + "|" + (doc == null ? "" : doc) + "|" + (dtm == null ? "" : dtm);
+        this.docType = docType;
+        this.recordedKey = name + "|" + (docNum == null ? "" : docNum) + "|" + (dtm == null ? "" : dtm);
     }
 
     // copy constructor
     public Passenger(Passenger other) {
         this.name = other.name;
-        this.doc = other.doc;
+        this.docNum = other.docNum;
+        this.docType = other.docType;
         this.dtm = other.dtm;
         this.recordedKey = other.recordedKey;
         this.sources = other.sources;
@@ -38,7 +50,7 @@ public class Passenger {
     }
 
     public String getName() { return name; }
-    public String getDoc() { return doc; }
+    public String getDocNum() { return docNum; }
     // DTM shown as DOB in PS
     public String getDtm() { return dtm; }
     public String getRecordedKey() { return recordedKey; }
@@ -46,10 +58,10 @@ public class Passenger {
     public String getSources() { return sources; }
 
     public String getDocTypeWithParens() {
-        if (doc == null || doc.isEmpty()) return "";
+        if (docNum == null || docNum.isEmpty()) return "";
         // PS used doc type separately; in many places Document was printed w/o parentheses. We keep doc as standalone.
         // If you need type like (P)XXX, that would require storing docType; current implementation stores only number.
-        return "(P)" + doc; // to mimic earlier PS output like (P)NUMBER. If docType was not P, caller's parse will not set to this.
+        return "("+docType+")" + docNum; // to mimic earlier PS output like (P)NUMBER. If docType was not P, caller's parse will not set to this.
     }
 
     public void setRecordedKey(String rk) { this.recordedKey = rk; }
@@ -75,6 +87,6 @@ public class Passenger {
     public List<String> getMissingSegments() { return missingSegments; }
 
     public String keyForLookup() {
-        return this.name + "|" + (this.doc == null ? "" : this.doc) + "|" + (this.dtm == null ? "" : this.dtm);
+        return this.name + "|" + (this.docNum == null ? "" : this.docNum) + "|" + (this.dtm == null ? "" : this.dtm);
     }
 }

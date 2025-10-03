@@ -1,4 +1,4 @@
-package com.l3.engine.utils;
+package com.l3.engine.apiutils;
 
 import com.l3.engine.model.Flight;
 import com.l3.engine.model.Passenger;
@@ -108,7 +108,7 @@ public class FileParser {
             List<Passenger> dropped = globalInputPassengers.values().stream()
                     .filter(p -> {
                         String key = GetTokenised(p.getName()) + "|" +
-                                (p.getDoc() == null ? "" : p.getDoc()) + "|" +
+                                (p.getDocNum() == null ? "" : p.getDocNum()) + "|" +
                                 (p.getDtm() == null ? "" : p.getDtm());
                         return !outputPassengers.containsKey(key);
                     })
@@ -140,10 +140,6 @@ public class FileParser {
 
             return result;
         }
-        else if(dataType.equals("pnr"))
-        {
-            return null; // PNR parsing to be implemented
-        }
         else
         {
             throw new IOException("Unsupported data type: " + dataType);
@@ -174,6 +170,7 @@ public class FileParser {
 
         String currentName = null;
         String docValue = null;
+        String docType = null;
         String dtmValue = null;
         boolean docCaptured = false;
         boolean pendingPassenger = false;
@@ -209,7 +206,7 @@ public class FileParser {
 
 
                 if (!validNads.contains(nadType)) {
-                    invalidNads.add(nadType + ":" + fullName);
+                    invalidNads.add("Invalid NAD Segment Found - "+nadType + ":" + fullName);
                     currentName = null;
                     pendingPassenger = false;
                 } else {
@@ -224,7 +221,7 @@ public class FileParser {
                                 // mark duplicate within same file
                                 passengerList.get(key).addInvalidMarker("duplicate-within-file");
                             } else {
-                                Passenger p = new Passenger(currentName, docValue, dtmValue, sourceLabel);
+                                Passenger p = new Passenger(currentName, docValue, dtmValue, sourceLabel,docType);
                                 p.setRecordedKey(buildRecordedKey(currentName, docValue, dtmValue));
                                 p.getInvalidNads().addAll(invalidNads);
                                 p.getInvalidDocs().addAll(invalidDocs);
@@ -256,15 +253,13 @@ public class FileParser {
                 }
             } else if (mDoc.matches()) {
                 if (currentName != null && !docCaptured) {
-                    String docType = mDoc.group(1);
+                    docType = mDoc.group(1);
                     String docNum = mDoc.group(2).trim();
-                    if (docType.equals("P") || docType.equals("V") || docType.equals("IP")) {
-                        docValue = docNum;
-                        docCaptured = true;
-                    } else {
-                        invalidDocs.add(docType + ":" + docNum + " for " + currentName);
-                        docCaptured = true;
+                    docValue = docNum;
+                    if (!docType.equals("P") && !docType.equals("V") && !docType.equals("IP")) {
+                        invalidDocs.add("Invalid DOC type found - " + docType + ":" + docNum + " for " + currentName);
                     }
+                    docCaptured = true;
                 }
             }
         }
@@ -277,7 +272,7 @@ public class FileParser {
                 if (passengerList.containsKey(key)) {
                     passengerList.get(key).incrementCount();
                 } else {
-                    Passenger p = new Passenger(currentName, docValue, dtmValue, sourceLabel);
+                    Passenger p = new Passenger(currentName, docValue, dtmValue, sourceLabel,docType);
                     p.setRecordedKey(buildRecordedKey(currentName, docValue, dtmValue));
                     p.getInvalidNads().addAll(invalidNads);
                     p.getInvalidDocs().addAll(invalidDocs);
@@ -297,11 +292,6 @@ public class FileParser {
         }
 
         return passengerList;
-    }
-
-    private Map<String,Passenger> parsePNRFiles(Path filePath, String sourceLabel) throws IOException {
-        // PNR parsing not implemented yet
-        throw new IOException("PNR parsing to be implemented.");
     }
 
     private Separators parseSeparators(String content) {
@@ -331,7 +321,7 @@ public class FileParser {
         }
 
         // defaults
-        return new Separators(':', '+', '.', '?','\'',' ');
+        return new Separators(':', '+', '.', '?',' ','\'');
     }
 
     private static String GetTokenised(String normalizedName) {
@@ -349,30 +339,51 @@ public class FileParser {
         return name + "|" + docPart + "|" + dtmPart;
     }
 
-    // src/main/java/com/l3/engine/utils/FileParser.java
     public Flight extractFlight(Path filePath) throws Exception {
         List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8);
-        int maxLines = Math.min(20, lines.size());
-        String unhLine = null;
-        String depPort = "", arrPort = "";
+        // Remove empty lines
+        List<String> nonEmptyLines = lines.stream().map(String::trim).filter(l -> !l.isEmpty()).collect(Collectors.toList());
 
-        // Find UNH line
-        for (int i = 0; i < Math.min(15, maxLines); i++) {
-            String line = lines.get(i).trim();
-            if (line.startsWith("UNH")) {
-                unhLine = line;
-                break;
+        String unhLine;
+        Separators separators;
+
+        if (nonEmptyLines.size() == 1) {
+            // Single-line format
+            String singleLine = nonEmptyLines.get(0);
+            int unhIndex = singleLine.indexOf("UNH");
+            if (unhIndex == -1) {
+                throw new IOException("UNH segment not found in single-line file.");
             }
-        }
-        if (unhLine == null) {
-            throw new IOException("UNH segment not found in first 15 lines.");
+            unhLine = singleLine.substring(unhIndex, Math.min(unhIndex + 100, singleLine.length())); // limit length
+            separators = parseSeparators(unhLine);
+        } else {
+            // Multi-line format (existing logic)
+            int maxLines = Math.min(20, lines.size());
+            unhLine = null;
+            for (int i = 0; i < Math.min(15, maxLines); i++) {
+                String line = lines.get(i).trim();
+                if (line.startsWith("UNH")) {
+                    unhLine = line;
+                    break;
+                }
+            }
+            if (unhLine == null) {
+                throw new IOException("UNH segment not found in first 15 lines.");
+            }
+            separators = parseSeparators(String.join("\n", lines.subList(0, maxLines)));
         }
 
-        Separators separators = parseSeparators(String.join("\n", lines.subList(0, maxLines)));
+        List<String> segmentLines;
+        if (nonEmptyLines.size() == 1) {
+            segmentLines = Arrays.asList(nonEmptyLines.get(0).split(Pattern.quote(String.valueOf(separators.terminator))));
+        } else {
+            segmentLines = nonEmptyLines;
+        }
+
         char elementSep = separators.element;
         char subElementSep = separators.subElement;
 
-        // Extract flight details
+        // Extract flight details (existing logic)
         String[] elements = unhLine.substring(3).split(Pattern.quote(String.valueOf(elementSep)));
         Pattern flightPattern = Pattern.compile("([A-Za-z0-9]{6})/(\\d{6})/(\\d{4})");
 
@@ -392,11 +403,11 @@ public class FileParser {
             if (flightNo != null) break;
         }
 
-        // Extract ports from LOC segments
+        // Extract ports from LOC segments (existing logic)
+        String depPort = "", arrPort = "";
         Pattern depPattern = Pattern.compile("^LOC" + Pattern.quote(String.valueOf(elementSep)) + "125" + Pattern.quote(String.valueOf(elementSep)) + "([A-Z]{3})");
         Pattern arrPattern = Pattern.compile("^LOC" + Pattern.quote(String.valueOf(elementSep)) + "87" + Pattern.quote(String.valueOf(elementSep)) + "([A-Z]{3})");
-        for (int i = 0; i < maxLines; i++) {
-            String line = lines.get(i).trim();
+        for (String line : segmentLines) {
             Matcher mDep = depPattern.matcher(line);
             Matcher mArr = arrPattern.matcher(line);
             if (depPort.isEmpty() && mDep.find()) {

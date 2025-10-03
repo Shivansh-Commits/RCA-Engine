@@ -1,4 +1,4 @@
-package com.l3.engine.utils;
+package com.l3.engine.apiutils;
 
 import com.l3.engine.model.Passenger;
 

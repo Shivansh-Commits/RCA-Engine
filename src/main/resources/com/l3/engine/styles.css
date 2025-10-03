@@ -8,7 +8,7 @@
 
 
 .tool_bar_hbox{
-    -fx-background-color:trasparent;
+    -fx-background-color:transparent;
     -fx-text-fill : white;
     -fx-padding: 10;
 }

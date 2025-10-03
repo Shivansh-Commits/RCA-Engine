@@ -1,9 +1,8 @@
 package com.l3.engine.controller;
 
-import com.l3.engine.model.Flight;
 import com.l3.engine.model.Passenger;
-import com.l3.engine.utils.FileParser;
-import com.l3.engine.utils.ParseResult;
+import com.l3.engine.apiutils.FileParser;
+import com.l3.engine.apiutils.ParseResult;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.*;
@@ -13,7 +12,6 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.*;
 
 public class MainController {
@@ -125,10 +123,12 @@ public class MainController {
             selectedFolder = dir;
         }
     }
-    
+
     private void onClear() {
         inputPaxTable.getItems().clear();
         outputPaxTable.getItems().clear();
+        droppedPassengersTable.getItems().clear();
+        duplicatePassengersTable.getItems().clear();
         totalOutputPassengersValue.setText("———");
         totalInputPassengersValue.setText("———");
         totalUniqueInputPassengersValue.setText("———");
@@ -227,18 +227,7 @@ public class MainController {
     }
 
     private void processPNR(String recordType,String dataType){
-        // Implement PNR processing logic here
-        FileParser parser = new FileParser(recordType,dataType);
 
-        // read folder
-        ParseResult result;
-        try {
-            result = parser.parseFolder(selectedFolder);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            showAlert("Error", "Failed to parse files: " + ex.getMessage());
-            return;
-        }
 
         showAlert("Info", "PNR processing to be implemented.");
     }
