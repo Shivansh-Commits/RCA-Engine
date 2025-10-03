@@ -1,0 +1,60 @@
+.header_borderpane{
+-fx-background-color: linear-gradient(to bottom, #2b3e2b, #436143);
+        -fx-padding: 10;
+        -fx-spacing: 10;
+        -fx-border-color: #b0b0b0;
+        -fx-border-width: 0 0 2 0; /* bottom border */
+}
+
+
+.tool_bar_hbox{
+    -fx-background-color:trasparent;
+    -fx-text-fill : white;
+    -fx-padding: 10;
+}
+
+.tool_bar_dropdown
+{
+    -fx-background-color:#E8E8E3;
+    -fx-background-radius: 2, 2; /* rounded corners */
+    -fx-text-fill: #2b3e2b;
+    -fx-font-weight: bold;
+}
+
+.tool_bar_button {
+   -fx-background-color: linear-gradient(to bottom, #2b3e2b, #464d36);
+    -fx-background-radius: 4, 2; /* rounded corners */
+    -fx-text-fill: White;
+    -fx-font-weight: bold;
+}
+
+.result_hbox{
+        -fx-background-color: linear-gradient(to bottom, #2b3e2b, #436143);
+        -fx-padding: 10;
+        -fx-spacing: 10;
+        -fx-border-color: #b0b0b0;
+        -fx-border-width: 0 0 2 0; /* bottom border */
+}
+
+.table-view {
+    -fx-background-color: #f8f9fa;
+    -fx-table-cell-border-color: #b0b0b0;
+    -fx-font-size: 12px;
+    -fx-font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #2b3e2b;
+}
+
+.table-view .column-header, .table-view .filler {
+    -fx-background-color: white;
+    -fx-text-fill: #ffffff;
+     -fx-font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.table-view .cell {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #2b3e2b;
+    -fx-padding: 5px;
+}
