@@ -1,4 +1,4 @@
-package com.l3.engine.model;
+package com.l3.api.model;
 
 public class Separators {
     public final char subElement;

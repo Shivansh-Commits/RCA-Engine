@@ -1,8 +1,9 @@
-package com.l3.engine.controller;
+package com.l3.api.controller;
 
-import com.l3.engine.model.Passenger;
-import com.l3.engine.apiutils.FileParser;
-import com.l3.engine.apiutils.ParseResult;
+import com.l3.api.model.Passenger;
+import com.l3.api.apiutils.FileParser;
+import com.l3.api.apiutils.ParseResult;
+import com.l3.api.pnrgov.PnrgovProcessor;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.*;
@@ -24,6 +25,14 @@ public class MainController {
     @FXML private Label totalOutputPassengersValue;
     @FXML private Label droppedPassengersValue;
     @FXML private Label duplicatePassengersValue;
+    @FXML private Label newPnrsValue;
+    
+    @FXML private Label totalInputPassengersLabel;
+    @FXML private Label totalUniqueInputPassengersLabel;
+    @FXML private Label totalOutputPassengersLabel;
+    @FXML private Label droppedPassengersLabel;
+    @FXML private Label duplicatePassengersLabel;
+    @FXML private Label newPnrsLabel;
     @FXML private Label flightNumber;
     @FXML private Label departureDate;
     @FXML private Label departurePort;
@@ -107,6 +116,21 @@ public class MainController {
 
         dataTypeComboBox.getSelectionModel().select("API"); // default
         recordTypeComboBox.getSelectionModel().select("PAX");
+        
+        // Add listener to disable PAX/CREW when PNR is selected
+        dataTypeComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if ("PNR".equals(newVal)) {
+                recordTypeComboBox.setDisable(true);
+                recordTypeComboBox.getSelectionModel().select("PAX"); // Default to PAX when disabled
+            } else {
+                recordTypeComboBox.setDisable(false);
+            }
+        });
+        
+        // Initialize NEW PNRs section as hidden (only show in PNR mode)
+        newPnrsLabel.setVisible(false);
+        newPnrsValue.setVisible(false);
+        
         inputPaxTable.setItems(FXCollections.observableArrayList());
 
         processBtn.setOnAction(e -> onProcess());
@@ -134,6 +158,7 @@ public class MainController {
         totalUniqueInputPassengersValue.setText("———");
         droppedPassengersValue.setText("———");
         duplicatePassengersValue.setText("———");
+        newPnrsValue.setText("———");
         arrivalPort.setText("———");
         departurePort.setText("———");
         departureDate.setText("———");
@@ -143,6 +168,12 @@ public class MainController {
     }
 
     private void processAPI(String recordType,String dataType){
+        // Update table headers for API mode
+        updateTableHeadersForAPIMode();
+        
+        // Update count labels for API mode
+        updateCountLabelsForAPIMode();
+        
         FileParser parser = new FileParser(recordType,dataType);  // pass to parser
 
         // read folder
@@ -226,10 +257,95 @@ public class MainController {
         }
     }
 
-    private void processPNR(String recordType,String dataType){
-
-
-        showAlert("Info", "PNR processing to be implemented.");
+    private void processPNR(String recordType, String dataType) {
+        try {
+            // Use PnrgovProcessor for PNR comparison
+            PnrgovProcessor processor = new PnrgovProcessor();
+            PnrgovProcessor.PnrgovResult result = processor.processFolder(selectedFolder);
+            
+            updateUIForPNRMode(result);
+            
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            showAlert("Error", "Failed to process PNR files: " + ex.getMessage());
+        }
+    }
+    
+    private void updateUIForPNRMode(PnrgovProcessor.PnrgovResult result) {
+        // Update table headers for PNR mode
+        updateTableHeadersForPNRMode();
+        
+        // Update count labels for PNR mode
+        updateCountLabelsForPNRMode();
+        
+        // Set flight details
+        flightNumber.setText(result.getFlightNumber());
+        departureDate.setText(result.getDepartureDate());
+        departurePort.setText(result.getDepartureAirport());
+        arrivalPort.setText(result.getArrivalAirport());
+        
+        // Update count displays
+        totalInputPassengersValue.setText(String.valueOf(result.getTotalInputPnrs()));
+        totalUniqueInputPassengersValue.setText(String.valueOf(result.getTotalInputPnrs())); // PNRs are unique
+        totalOutputPassengersValue.setText(String.valueOf(result.getTotalOutputPnrs()));
+        droppedPassengersValue.setText(String.valueOf(result.getDroppedCount()));
+        duplicatePassengersValue.setText(String.valueOf(result.getDuplicateCount()));
+        newPnrsValue.setText(String.valueOf(result.getNewPnrCount()));
+        
+        // Update processed files list
+        filesProcessedList.setItems(FXCollections.observableArrayList(result.getProcessedFiles()));
+        
+        // Update warnings list
+        ObservableList<String> warnings = FXCollections.observableArrayList();
+        warnings.addAll(result.getAllInvalidNads());
+        warnings.addAll(result.getAllInvalidDocs());
+        warnings.addAll(result.getAllMissingSegments());
+        warningsList.setItems(warnings);
+        
+        // Populate input PNR table using compatible TableRow structure
+        if (result.getInputPassengers() != null && !result.getInputPassengers().isEmpty()) {
+            List<TableRow> inputRows = new ArrayList<>();
+            int i = 1;
+            for (PnrgovProcessor.PnrgovTableRow pnrRow : result.getInputPassengers()) {
+                // Map to TableRow: No, Name, Locator(DTM), Doc(""), RecordedKey(""), Source, Count
+                inputRows.add(new TableRow(i++, pnrRow.getName(), pnrRow.getPnrRloc(), "", 
+                    "", pnrRow.getSource(), pnrRow.getCount()));
+            }
+            inputPaxTable.setItems(FXCollections.observableArrayList(inputRows));
+        }
+        
+        // Populate output PNR table using compatible TableRow structure
+        if (result.getOutputPassengers() != null && !result.getOutputPassengers().isEmpty()) {
+            List<TableRow> outputRows = new ArrayList<>();
+            int j = 1;
+            for (PnrgovProcessor.PnrgovTableRow pnrRow : result.getOutputPassengers()) {
+                outputRows.add(new TableRow(j++, pnrRow.getName(), pnrRow.getPnrRloc(), "", 
+                    "", pnrRow.getSource(), pnrRow.getCount()));
+            }
+            outputPaxTable.setItems(FXCollections.observableArrayList(outputRows));
+        }
+        
+        // Show dropped PNRs using compatible TableRow structure
+        if (result.getDroppedPassengers() != null && !result.getDroppedPassengers().isEmpty()) {
+            List<TableRow> droppedRows = new ArrayList<>();
+            int k = 1;
+            for (PnrgovProcessor.PnrgovTableRow pnrRow : result.getDroppedPassengers()) {
+                droppedRows.add(new TableRow(k++, pnrRow.getName(), pnrRow.getPnrRloc(), "", 
+                    "", pnrRow.getSource(), pnrRow.getCount()));
+            }
+            droppedPassengersTable.setItems(FXCollections.observableArrayList(droppedRows));
+        }
+        
+        // Show duplicate PNRs using compatible TableRow structure
+        if (result.getDuplicatePassengers() != null && !result.getDuplicatePassengers().isEmpty()) {
+            List<TableRow> duplicateRows = new ArrayList<>();
+            int l = 1;
+            for (PnrgovProcessor.PnrgovTableRow pnrRow : result.getDuplicatePassengers()) {
+                duplicateRows.add(new TableRow(l++, pnrRow.getName(), pnrRow.getPnrRloc(), "", 
+                    "", pnrRow.getSource(), pnrRow.getCount()));
+            }
+            duplicatePassengersTable.setItems(FXCollections.observableArrayList(duplicateRows));
+        }
     }
 
     private void onProcess() {
@@ -260,6 +376,79 @@ public class MainController {
         a.setContentText(msg);
         a.showAndWait();
     }
+    
+    private void updateTableHeadersForPNRMode() {
+        // Update headers for PNR mode: No | Passenger Name | Locator | Source | Count
+        inputPaxColName.setText("Passenger Name");
+        inputPaxColDTM.setText("Locator");
+        inputPaxColDOC.setVisible(false); // Hide DOC column for PNR
+        inputPaxColRecordedKey.setVisible(false); // Hide RecordedKey column for PNR
+        
+        outputPaxColName.setText("Passenger Name");
+        outputPaxColDTM.setText("Locator");
+        outputPaxColDOC.setVisible(false);
+        outputPaxColRecordedKey.setVisible(false);
+        
+        droppedColName.setText("Passenger Name");
+        droppedColDTM.setText("Locator");
+        droppedColDOC.setVisible(false);
+        droppedColRecordedKey.setVisible(false);
+        
+        duplicateColName.setText("Passenger Name");
+        duplicateColDTM.setText("Locator");
+        duplicateColDOC.setVisible(false);
+        duplicateColRecordedKey.setVisible(false);
+    }
+    
+    private void updateTableHeadersForAPIMode() {
+        // Restore headers for API mode: No | NAD (Passenger Name) | DTM | DOC | RecordedKey | Source | Count
+        inputPaxColName.setText("NAD (Passenger Name)");
+        inputPaxColDTM.setText("DTM");
+        inputPaxColDOC.setVisible(true);
+        inputPaxColRecordedKey.setVisible(true);
+        
+        outputPaxColName.setText("NAD (Passenger Name)");
+        outputPaxColDTM.setText("DTM");
+        outputPaxColDOC.setVisible(true);
+        outputPaxColRecordedKey.setVisible(true);
+        
+        droppedColName.setText("NAD (Passenger Name)");
+        droppedColDTM.setText("DTM");
+        droppedColDOC.setVisible(true);
+        droppedColRecordedKey.setVisible(true);
+        
+        duplicateColName.setText("NAD (Passenger Name)");
+        duplicateColDTM.setText("DTM");
+        duplicateColDOC.setVisible(true);
+        duplicateColRecordedKey.setVisible(true);
+    }
+    
+    private void updateCountLabelsForPNRMode() {
+        // Update count labels for PNR mode
+        totalInputPassengersLabel.setText("Total Input PNRs");
+        totalUniqueInputPassengersLabel.setText("Total Unique PNRs");
+        totalOutputPassengersLabel.setText("Total Output PNRs");
+        droppedPassengersLabel.setText("Dropped PNRs");
+        duplicatePassengersLabel.setText("Duplicate PNRs");
+        newPnrsLabel.setText("New PNRs");
+        
+        // Show NEW PNRs section for PNR mode
+        newPnrsLabel.setVisible(true);
+        newPnrsValue.setVisible(true);
+    }
+    
+    private void updateCountLabelsForAPIMode() {
+        // Restore count labels for API mode
+        totalInputPassengersLabel.setText("Total Input Passengers");
+        totalUniqueInputPassengersLabel.setText("Total Unique Input Passengers");
+        totalOutputPassengersLabel.setText("Total Output Passengers");
+        droppedPassengersLabel.setText("Dropped Passengers");
+        duplicatePassengersLabel.setText("Duplicate Passengers");
+        
+        // Hide NEW PNRs section for API mode
+        newPnrsLabel.setVisible(false);
+        newPnrsValue.setVisible(false);
+    }
 
     // TableRow used only by the UI
     public static class TableRow {
@@ -288,5 +477,34 @@ public class MainController {
         public String getRecordedKey() { return recordedKey; }
         public String getSource() { return source; }
         public int getCount() { return count; }
+    }
+    
+    // PNR-specific TableRow for better display structure
+    public static class PnrTableRow {
+        private final int no;
+        private final String passengerName;
+        private final String locator;
+        private final String source;
+        private final int count;
+
+        public PnrTableRow(int no, String passengerName, String locator, String source, int count) {
+            this.no = no;
+            this.passengerName = passengerName != null ? passengerName : "";
+            this.locator = locator != null ? locator : "";
+            this.source = source != null ? source : "";
+            this.count = count;
+        }
+
+        public int getNo() { return no; }
+        public String getPassengerName() { return passengerName; }
+        public String getLocator() { return locator; }
+        public String getSource() { return source; }
+        public int getCount() { return count; }
+        
+        // For compatibility with existing TableView structure
+        public String getName() { return passengerName; }
+        public String getDtm() { return locator; }
+        public String getDoc() { return ""; }
+        public String getRecordedKey() { return ""; }
     }
 }

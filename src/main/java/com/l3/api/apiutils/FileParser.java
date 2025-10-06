@@ -1,8 +1,8 @@
-package com.l3.engine.apiutils;
+package com.l3.api.apiutils;
 
-import com.l3.engine.model.Flight;
-import com.l3.engine.model.Passenger;
-import com.l3.engine.model.Separators;
+import com.l3.api.model.Flight;
+import com.l3.api.model.Passenger;
+import com.l3.api.model.Separators;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -383,7 +383,109 @@ public class FileParser {
         char elementSep = separators.element;
         char subElementSep = separators.subElement;
 
-        // Extract flight details (existing logic)
+        // Check if this is API mode to use new parsing logic
+        if ("api".equalsIgnoreCase(this.dataType)) {
+            return extractFlightFromApiSegments(segmentLines, elementSep, subElementSep);
+        } else {
+            // Use original UNH-based logic for non-API modes
+            return extractFlightFromUnh(unhLine, segmentLines, elementSep, subElementSep);
+        }
+    }
+    
+    /**
+     * New API-specific flight extraction logic using TDT, LOC, and DTM segments
+     */
+    private Flight extractFlightFromApiSegments(List<String> segmentLines, char elementSep, char subElementSep) throws Exception {
+        String flightNo = null, depDate = null, depTime = null, depPort = "", arrPort = "";
+        
+        // Extract flight number from TDT segment
+        // Pattern: TDT<Element separator>20<Element separator><Flight number in 6 characters>
+        // Ex: TDT+20+MS0775
+        Pattern tdtPattern = Pattern.compile("^TDT" + Pattern.quote(String.valueOf(elementSep)) + "20" + Pattern.quote(String.valueOf(elementSep)) + "([A-Za-z0-9]{6})");
+        
+        // Extract departure airport from LOC segment
+        // Pattern: LOC<Element separator>125<Element separator><departure airport in 3 character>
+        // Ex: LOC+125+CAI
+        Pattern depPattern = Pattern.compile("^LOC" + Pattern.quote(String.valueOf(elementSep)) + "125" + Pattern.quote(String.valueOf(elementSep)) + "([A-Z]{3})");
+        
+        // Extract arrival airport from LOC segment
+        // Pattern: LOC<Element separator>87<Element separator><arrival airport in 3 character>
+        // Ex: LOC+87+DUB
+        Pattern arrPattern = Pattern.compile("^LOC" + Pattern.quote(String.valueOf(elementSep)) + "87" + Pattern.quote(String.valueOf(elementSep)) + "([A-Z]{3})");
+        
+        // Extract departure date from DTM segment
+        // Pattern: DTM<Element separator>189<Sub-Element separator><departure date and time><Sub-element separator>201
+        // Ex: DTM+189:2508140935:201
+        Pattern dtmPattern = Pattern.compile("^DTM" + Pattern.quote(String.valueOf(elementSep)) + "189" + Pattern.quote(String.valueOf(subElementSep)) + "(\\d{10})" + Pattern.quote(String.valueOf(subElementSep)) + "201");
+        
+        for (String line : segmentLines) {
+            line = line.trim();
+            
+            // Extract flight number from TDT segment
+            if (flightNo == null) {
+                Matcher tdtMatcher = tdtPattern.matcher(line);
+                if (tdtMatcher.find()) {
+                    flightNo = tdtMatcher.group(1);
+                }
+            }
+            
+            // Extract departure airport
+            if (depPort.isEmpty()) {
+                Matcher depMatcher = depPattern.matcher(line);
+                if (depMatcher.find()) {
+                    depPort = depMatcher.group(1);
+                }
+            }
+            
+            // Extract arrival airport
+            if (arrPort.isEmpty()) {
+                Matcher arrMatcher = arrPattern.matcher(line);
+                if (arrMatcher.find()) {
+                    arrPort = arrMatcher.group(1);
+                }
+            }
+            
+            // Extract departure date and time
+            if (depDate == null || depTime == null) {
+                Matcher dtmMatcher = dtmPattern.matcher(line);
+                if (dtmMatcher.find()) {
+                    String dateTimeStr = dtmMatcher.group(1); // e.g., "2508140935"
+                    // Format: YYMMDDHHMM (250814 = 14/08/2025, 0935 = 09:35)
+                    if (dateTimeStr.length() == 10) {
+                        String yearStr = dateTimeStr.substring(0, 2);
+                        String monthStr = dateTimeStr.substring(2, 4);
+                        String dayStr = dateTimeStr.substring(4, 6);
+                        String hourStr = dateTimeStr.substring(6, 8);
+                        String minuteStr = dateTimeStr.substring(8, 10);
+                        
+                        // Format date as DD/MM/YYYY
+                        depDate = dayStr + "/" + monthStr + "/20" + yearStr;
+                        depTime = hourStr + minuteStr;
+                    }
+                }
+            }
+            
+            // Break early if all required data is found
+            if (flightNo != null && depDate != null && depTime != null && !depPort.isEmpty() && !arrPort.isEmpty()) {
+                break;
+            }
+        }
+        
+        if (flightNo == null) {
+            throw new IOException("Flight number not found in TDT segment for API mode.");
+        }
+        if (depDate == null || depTime == null) {
+            throw new IOException("Departure date/time not found in DTM segment for API mode.");
+        }
+        
+        return new Flight(flightNo, depTime, depDate, depPort, arrPort);
+    }
+    
+    /**
+     * Original UNH-based flight extraction logic for non-API modes
+     */
+    private Flight extractFlightFromUnh(String unhLine, List<String> segmentLines, char elementSep, char subElementSep) throws Exception {
+        // Extract flight details (original logic)
         String[] elements = unhLine.substring(3).split(Pattern.quote(String.valueOf(elementSep)));
         Pattern flightPattern = Pattern.compile("([A-Za-z0-9]{6})/(\\d{6})/(\\d{4})");
 
@@ -403,7 +505,7 @@ public class FileParser {
             if (flightNo != null) break;
         }
 
-        // Extract ports from LOC segments (existing logic)
+        // Extract ports from LOC segments (original logic)
         String depPort = "", arrPort = "";
         Pattern depPattern = Pattern.compile("^LOC" + Pattern.quote(String.valueOf(elementSep)) + "125" + Pattern.quote(String.valueOf(elementSep)) + "([A-Z]{3})");
         Pattern arrPattern = Pattern.compile("^LOC" + Pattern.quote(String.valueOf(elementSep)) + "87" + Pattern.quote(String.valueOf(elementSep)) + "([A-Z]{3})");

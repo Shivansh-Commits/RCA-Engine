@@ -1,6 +1,6 @@
-package com.l3.engine.apiutils;
+package com.l3.api.apiutils;
 
-import com.l3.engine.model.Separators;
+import com.l3.api.model.Separators;
 
 import java.util.*;
 

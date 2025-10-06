@@ -1,6 +1,6 @@
-package com.l3.engine.apiutils;
+package com.l3.api.apiutils;
 
-import com.l3.engine.model.Passenger;
+import com.l3.api.model.Passenger;
 
 import java.util.*;
 
