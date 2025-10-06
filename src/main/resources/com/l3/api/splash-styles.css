@@ -1,0 +1,64 @@
+/* Minimal Modern Splash Screen Styles */
+
+.splash-root {
+    -fx-background-color: #2b3e2b;
+    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+.splash-container {
+    -fx-background-color: #2b3e2b;
+    -fx-alignment: center;
+    -fx-spacing: 40;
+    -fx-padding: 60;
+}
+
+.splash-logo {
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.1), 20, 0.3, 0, 0);
+}
+
+.splash-title {
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 32px;
+    -fx-font-weight: 300;
+    -fx-letter-spacing: 2px;
+    -fx-text-alignment: center;
+}
+
+.splash-subtitle {
+    -fx-text-fill: rgba(255,255,255,0.8);
+    -fx-font-size: 16px;
+    -fx-font-weight: 400;
+    -fx-text-alignment: center;
+    -fx-wrap-text: true;
+    -fx-max-width: 400;
+}
+
+.splash-progress {
+    -fx-background-color: rgba(255,255,255,0.2);
+    -fx-background-radius: 3;
+    -fx-pref-height: 4;
+    -fx-pref-width: 280;
+    -fx-padding: 0;
+}
+
+.splash-progress .track {
+    -fx-background-color: rgba(255,255,255,0.2);
+    -fx-background-radius: 3;
+    -fx-background-insets: 0;
+}
+
+.splash-progress .bar {
+    -fx-background-color: linear-gradient(to right, #ffffff, rgba(255,255,255,0.9));
+    -fx-background-radius: 3;
+    -fx-background-insets: 0;
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.3), 8, 0.5, 0, 0);
+}
+
+/* Fade in animation effect */
+.splash-content {
+    -fx-opacity: 0;
+}
+
+.splash-fade-in {
+    -fx-opacity: 1;
+}

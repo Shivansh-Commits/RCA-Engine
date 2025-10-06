@@ -19,7 +19,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="955.0" prefWidth="1345.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.api.controller.MainController">
+<BorderPane prefHeight="936.0" prefWidth="1345.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.api.controller.MainController">
     <top>
         <VBox prefHeight="136.0" prefWidth="1278.0">
          <BorderPane prefHeight="32.0" prefWidth="1278.0" styleClass="header_borderpane" stylesheets="@styles.css">
@@ -34,7 +34,7 @@
                </ImageView>
             </center>
          </BorderPane>
-         <BorderPane styleClass="header_borderpane" stylesheets="@styles.css">
+         <BorderPane styleClass="toolbar_borderpane" stylesheets="@styles.css">
             <right>
                <HBox BorderPane.alignment="CENTER">
                   <children>
@@ -189,32 +189,32 @@
                         <children>
                            <Label fx:id="totalInputPassengersValue" alignment="CENTER" contentDisplay="CENTER" prefHeight="51.0" prefWidth="160.0" text="_____" textFill="WHITE">
                               <font>
-                                 <Font name="System Bold" size="25.0" />
+                                 <Font name="System Bold" size="28.0" />
                               </font>
                            </Label>
                            <Label fx:id="totalUniqueInputPassengersValue" alignment="CENTER" contentDisplay="CENTER" prefHeight="48.0" prefWidth="200.0" text="_____" textFill="WHITE">
                               <font>
-                                 <Font name="System Bold" size="25.0" />
+                                 <Font name="System Bold" size="28.0" />
                               </font>
                            </Label>
                            <Label fx:id="totalOutputPassengersValue" alignment="CENTER" contentDisplay="CENTER" prefHeight="51.0" prefWidth="160.0" text="_____" textFill="WHITE">
                               <font>
-                                 <Font name="System Bold" size="25.0" />
+                                 <Font name="System Bold" size="28.0" />
                               </font>
                            </Label>
                            <Label fx:id="droppedPassengersValue" alignment="CENTER" contentDisplay="CENTER" prefHeight="52.0" prefWidth="130.0" text="_____" textFill="WHITE">
                               <font>
-                                 <Font name="System Bold" size="25.0" />
+                                 <Font name="System Bold" size="28.0" />
                               </font>
                            </Label>
                            <Label fx:id="duplicatePassengersValue" alignment="CENTER" contentDisplay="CENTER" prefHeight="51.0" prefWidth="140.0" text="_____" textFill="WHITE">
                               <font>
-                                 <Font name="System Bold" size="25.0" />
+                                 <Font name="System Bold" size="28.0" />
                               </font>
                            </Label>
                            <Label fx:id="newPnrsValue" alignment="CENTER" contentDisplay="CENTER" prefHeight="51.0" prefWidth="100.0" text="_____" textFill="WHITE">
                               <font>
-                                 <Font name="System Bold" size="25.0" />
+                                 <Font name="System Bold" size="28.0" />
                               </font>
                            </Label>
                         </children>
