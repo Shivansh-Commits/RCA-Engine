@@ -194,7 +194,7 @@ public class PnrgovComparator {
         for (Integer partNumber : partNumbers) {
             File file = group.getParts().get(partNumber);
             String fileName = file.getName();
-            logger.debug("Processing file: " + fileName);
+            //logger.debug("Processing file: " + fileName);
             
             String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
             if (content.trim().isEmpty()) {
@@ -295,7 +295,7 @@ public class PnrgovComparator {
      * Validate a single EDIFACT file
      */
     private void validateEdifactFile(File file, String fileType) throws Exception {
-        logger.debug("Validating " + fileType + " file: " + file.getName());
+        //logger.debug("Validating " + fileType + " file: " + file.getName());
         
         String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
         String[] segments = content.split("'");
@@ -342,7 +342,7 @@ public class PnrgovComparator {
             }
         }
         
-        logger.debug(fileType + " file validation passed");
+        //logger.debug(fileType + " file validation passed");
     }
     
     /**
@@ -354,9 +354,7 @@ public class PnrgovComparator {
         String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
         EdifactSeparators separators = EdifactSeparators.parse(content);
         
-        logger.debug("Using separators - Element: '" + separators.getElement() + 
-                    "', SubElement: '" + separators.getSubElement() + 
-                    "', Segment: '" + separators.getSegment() + "'");
+        logger.debug("Using separators - Element: '" + separators.getElement() +"', SubElement: '" + separators.getSubElement() +"', Segment: '" + separators.getSegment() + "'");
         
         String[] segments = content.split(Pattern.quote(String.valueOf(separators.getSegment())));
         
@@ -533,8 +531,8 @@ public class PnrgovComparator {
         Map<String, Set<String>> passengerSourceMap = new HashMap<>();
         Set<String> duplicateKeys = new HashSet<>();
         
-        logger.info("=== DUPLICATE DETECTION DEBUG ===");
-        logger.info("Total input passengers to analyze: " + inputData.getPassengers().size());
+        //logger.info("=== DUPLICATE DETECTION DEBUG ===");
+        //logger.info("Total input passengers to analyze: " + inputData.getPassengers().size());
         
         // Group passengers by key and track which source files they come from
         for (PassengerRecord passenger : inputData.getPassengers()) {
@@ -542,17 +540,17 @@ public class PnrgovComparator {
             String sourceFile = passenger.getSource();
             
             passengerSourceMap.computeIfAbsent(key, k -> new HashSet<>()).add(sourceFile);
-            logger.debug("Passenger: '" + passenger.getName() + "', PNR: '" + passenger.getPnrRloc() + "', Source: '" + sourceFile + "', Key: '" + key + "'");
+            //logger.debug("Passenger: '" + passenger.getName() + "', PNR: '" + passenger.getPnrRloc() + "', Source: '" + sourceFile + "', Key: '" + key + "'");
         }
         
-        logger.info("Unique passenger keys found: " + passengerSourceMap.size());
+        //logger.info("Unique passenger keys found: " + passengerSourceMap.size());
         
         // Find keys that appear in multiple source files (cross-file duplicates)
         for (Map.Entry<String, Set<String>> entry : passengerSourceMap.entrySet()) {
             String key = entry.getKey();
             Set<String> sources = entry.getValue();
             
-            logger.info("Key: '" + key + "' appears in " + sources.size() + " source file(s): " + sources);
+            //logger.info("Key: '" + key + "' appears in " + sources.size() + " source file(s): " + sources);
             
             if (sources.size() > 1) {
                 duplicateKeys.add(key);
@@ -560,8 +558,8 @@ public class PnrgovComparator {
             }
         }
         
-        logger.info("Total cross-file duplicate keys identified: " + duplicateKeys.size());
-        logger.info("=================================");
+        //logger.info("Total cross-file duplicate keys identified: " + duplicateKeys.size());
+        //logger.info("=================================");
         return duplicateKeys;
     }
     

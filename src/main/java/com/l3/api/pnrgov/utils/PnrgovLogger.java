@@ -35,7 +35,10 @@ public class PnrgovLogger {
     }
     
     public void debug(String message) {
-        log(message, "DEBUG");
+        // Skip debug logging for performance - only log to file if enabled
+        if (enableLogging) {
+            log(message, "DEBUG");
+        }
     }
     
     public void warn(String message) {
@@ -55,8 +58,6 @@ public class PnrgovLogger {
         // Always write to console for important messages
         if ("ERROR".equals(level) || "WARN".equals(level)) {
             System.out.println(logEntry);
-        } else if ("INFO".equals(level)) {
-            System.out.println("ℹ️ " + message);
         }
         
         // Write to log file if logging is enabled

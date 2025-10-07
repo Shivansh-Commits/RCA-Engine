@@ -31,26 +31,26 @@ public class PnrgovProcessor {
         PnrgovConfig config = new PnrgovConfig();
         config.setMode(PnrgovConfig.Mode.EDIFACT);
         config.setMatchingStrategy(PnrgovConfig.MatchingStrategy.PNR_NAME);
-        config.setEnableLogging(true); // Enable logging for debugging
+        config.setEnableLogging(false); // Enable logging for debugging
         
         // Create comparator and perform comparison
         PnrgovComparator comparator = new PnrgovComparator(config);
         ComparisonResult result = comparator.compare(folder);
         
         // Debug logging
-        logger.info("=== COMPARISON RESULTS DEBUG ===");
-        logger.info("Total Input Passengers: " + result.getTotalInputPassengers());
-        logger.info("Total Output Passengers: " + result.getTotalOutputPassengers());
-        logger.info("Dropped Passenger Count: " + result.getDroppedPassengerCount());
-        logger.info("Processed Passenger Count: " + result.getProcessedPassengerCount());
-        logger.info("Added Passenger Count: " + result.getAddedPassengerCount());
-        logger.info("Duplicate Passenger Count: " + result.getDuplicatePassengers().size());
-        logger.info("Input Passengers List Size: " + result.getInputData().getPassengers().size());
-        logger.info("Output Passengers List Size: " + result.getOutputData().getPassengers().size());
-        logger.info("Dropped Passengers List Size: " + result.getDroppedPassengers().size());
-        logger.info("Processed Passengers List Size: " + result.getProcessedPassengers().size());
-        logger.info("Duplicate Passengers List Size: " + result.getDuplicatePassengers().size());
-        logger.info("===============================");
+//        logger.info("=== COMPARISON RESULTS DEBUG ===");
+//        logger.info("Total Input Passengers: " + result.getTotalInputPassengers());
+//        logger.info("Total Output Passengers: " + result.getTotalOutputPassengers());
+//        logger.info("Dropped Passenger Count: " + result.getDroppedPassengerCount());
+//        logger.info("Processed Passenger Count: " + result.getProcessedPassengerCount());
+//        logger.info("Added Passenger Count: " + result.getAddedPassengerCount());
+//        logger.info("Duplicate Passenger Count: " + result.getDuplicatePassengers().size());
+//        logger.info("Input Passengers List Size: " + result.getInputData().getPassengers().size());
+//        logger.info("Output Passengers List Size: " + result.getOutputData().getPassengers().size());
+//        logger.info("Dropped Passengers List Size: " + result.getDroppedPassengers().size());
+//        logger.info("Processed Passengers List Size: " + result.getProcessedPassengers().size());
+//        logger.info("Duplicate Passengers List Size: " + result.getDuplicatePassengers().size());
+//        logger.info("===============================");
         
         // Convert to UI-compatible format
         return convertToUiResult(result);
@@ -204,10 +204,28 @@ public class PnrgovProcessor {
         uiResult.setAddedCount(result.getAddedPassengerCount());
         uiResult.setDuplicateCount(duplicateRows.size()); // Use actual duplicate count from UI rows
         uiResult.setNewPnrCount(newPnrRlocs.size()); // NEW PNRs count
-        
+
+
+
         // Set processed files (simplified)
         List<String> processedFiles = new ArrayList<>();
-        processedFiles.add("Input: " + new File(result.getInputData().getFilePath()).getName());
+        // Extract all unique source files from passenger records
+        Set<String> uniqueInputFiles = new HashSet<>();
+        for (PassengerRecord passenger : result.getInputData().getPassengers()) {
+            if (passenger.getSource() != null && !passenger.getSource().isEmpty()) {
+                uniqueInputFiles.add(passenger.getSource());
+            }
+        }
+
+        // Add all individual input files
+        if (!uniqueInputFiles.isEmpty()) {
+            for (String inputFile : uniqueInputFiles) {
+                processedFiles.add("Input: " + inputFile);
+            }
+        } else {
+            // Fallback to merged file if no individual sources found
+            processedFiles.add("Input: " + new File(result.getInputData().getFilePath()).getName());
+        }
         processedFiles.add("Output: " + new File(result.getOutputData().getFilePath()).getName());
         uiResult.setProcessedFiles(processedFiles);
         
