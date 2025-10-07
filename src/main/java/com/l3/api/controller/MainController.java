@@ -4,12 +4,14 @@ import com.l3.api.model.Passenger;
 import com.l3.api.apiutils.FileParser;
 import com.l3.api.apiutils.ParseResult;
 import com.l3.api.pnrgov.PnrgovProcessor;
+import com.l3.api.utils.ExcelReportGenerator;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.*;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
@@ -20,6 +22,7 @@ public class MainController {
     @FXML private Button chooseFolderBtn;
     @FXML private Button processBtn;
     @FXML private Button clearBtn;
+    @FXML private Button exportBtn; // New Excel export button
     @FXML private Label totalInputPassengersValue;
     @FXML private Label totalUniqueInputPassengersValue;
     @FXML private Label totalOutputPassengersValue;
@@ -136,9 +139,11 @@ public class MainController {
         processBtn.setOnAction(e -> onProcess());
         chooseFolderBtn.setOnAction(e -> onChooseFolder());
         clearBtn.setOnAction(e -> onClear());
+        exportBtn.setOnAction(e -> onExport()); // Export button action
     }
 
     private void onChooseFolder() {
+        onClear();
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle("Select folder with input/output files");
         Stage stage = (Stage) chooseFolderBtn.getScene().getWindow();
@@ -368,6 +373,94 @@ public class MainController {
             processPNR(recordType,dataType);
         }
 
+    }
+
+    private void onExport() {
+        // Check if there's any data to export
+        if (inputPaxTable.getItems().isEmpty() &&
+            outputPaxTable.getItems().isEmpty() &&
+            droppedPassengersTable.getItems().isEmpty() &&
+            duplicatePassengersTable.getItems().isEmpty()) {
+            showAlert("No Data", "Please process data first before exporting.");
+            return;
+        }
+
+        // Show file chooser to select export location
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Excel Report");
+        fileChooser.getExtensionFilters().addAll(
+            new FileChooser.ExtensionFilter("Excel Files", "*.xlsx"),
+            new FileChooser.ExtensionFilter("All Files", "*.*")
+        );
+
+        // Set default filename with timestamp
+        String defaultName = "Data_Quality_Report_" +
+            new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".xlsx";
+        fileChooser.setInitialFileName(defaultName);
+
+        Stage stage = (Stage) exportBtn.getScene().getWindow();
+        File file = fileChooser.showSaveDialog(stage);
+
+        if (file != null) {
+            try {
+                // Get flight details
+                String flightNo = flightNumber.getText() != null ? flightNumber.getText() : "";
+                String depDate = departureDate.getText() != null ? departureDate.getText() : "";
+                String depPort = departurePort.getText() != null ? departurePort.getText() : "";
+                String arrPort = arrivalPort.getText() != null ? arrivalPort.getText() : "";
+
+                // Get summary counts
+                int totalInput = parseIntFromLabel(totalInputPassengersValue.getText());
+                int totalOutput = parseIntFromLabel(totalOutputPassengersValue.getText());
+                int dropped = parseIntFromLabel(droppedPassengersValue.getText());
+                int duplicates = parseIntFromLabel(duplicatePassengersValue.getText());
+
+                // Collect warnings from warningsList
+                List<String> warnings = new ArrayList<>();
+                if (warningsList.getItems() != null && !warningsList.getItems().isEmpty()) {
+                    warnings.addAll(warningsList.getItems());
+                }
+
+                // Generate comprehensive Excel report with warnings
+                ExcelReportGenerator.generateReport(
+                    file.getAbsolutePath(),
+                    inputPaxTable,
+                    outputPaxTable,
+                    droppedPassengersTable,
+                    duplicatePassengersTable,
+                    flightNo,
+                    depDate,
+                    depPort,
+                    arrPort,
+                    totalInput,
+                    totalOutput,
+                    dropped,
+                    duplicates,
+                    warnings
+                );
+
+                String successMessage = "Data quality report exported successfully to:\n" + file.getAbsolutePath();
+                if (!warnings.isEmpty()) {
+                    successMessage += "\n\nWarnings sheet included with " + warnings.size() + " warning(s).";
+                }
+                showAlert("Export Successful", successMessage);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                showAlert("Export Error", "Failed to export report: " + e.getMessage());
+            }
+        }
+    }
+
+    private int parseIntFromLabel(String text) {
+        if (text == null || text.equals("———") || text.trim().isEmpty()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private void showAlert(String title, String msg) {

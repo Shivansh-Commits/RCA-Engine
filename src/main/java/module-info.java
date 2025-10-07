@@ -3,6 +3,10 @@ module com.l3.api {
     requires javafx.fxml;
     requires org.testng;
 
+    // Apache POI modules for Excel generation
+    requires org.apache.poi.poi;
+    requires org.apache.poi.ooxml;
+    requires java.desktop;
 
     opens com.l3.api to javafx.fxml;
     opens com.l3.api.controller to javafx.fxml;

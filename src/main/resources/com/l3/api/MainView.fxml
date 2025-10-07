@@ -131,9 +131,10 @@
                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
                         </padding>
                      </HBox>
-                     <HBox>
+                     <HBox spacing="8.0">
                         <children>
-                               <Button fx:id="processBtn" prefHeight="25.0" prefWidth="240.0" styleClass="tool_bar_button" stylesheets="@styles.css" text="Process">
+                           <Button fx:id="exportBtn" minWidth="115.0" mnemonicParsing="false" styleClass="tool_bar_button" stylesheets="@styles.css" text="Export to CSV" />
+                               <Button fx:id="processBtn" minWidth="115.0" styleClass="tool_bar_button" stylesheets="@styles.css" text="Process">
                               <cursor>
                                  <Cursor fx:constant="HAND" />
                               </cursor>
