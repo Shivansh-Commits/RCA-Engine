@@ -81,7 +81,13 @@ public class MainController {
     @FXML private TableColumn<TableRow, String> duplicateColSource;
     @FXML private TableColumn<TableRow, Number> duplicateColCount;
 
+    @FXML private TextField inputSearchField;
+    @FXML private TextField outputSearchField;
+
     private File selectedFolder;
+
+    private ObservableList<TableRow> allInputRows = FXCollections.observableArrayList();
+    private ObservableList<TableRow> allOutputRows = FXCollections.observableArrayList();
 
     @FXML
     public void initialize() {
@@ -140,6 +146,13 @@ public class MainController {
         chooseFolderBtn.setOnAction(e -> onChooseFolder());
         clearBtn.setOnAction(e -> onClear());
         exportBtn.setOnAction(e -> onExport()); // Export button action
+
+        inputSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            filterInputTable(newVal);
+        });
+        outputSearchField.textProperty().addListener((obs, oldVal, newVal) -> {
+            filterOutputTable(newVal);
+        });
     }
 
     private void onChooseFolder() {
@@ -170,6 +183,8 @@ public class MainController {
         flightNumber.setText("———");
         warningsList.getItems().clear();
         selectedFolder = null;
+        inputSearchField.setText("");
+        outputSearchField.setText("");
     }
 
     private void processAPI(String recordType,String dataType){
@@ -207,6 +222,7 @@ public class MainController {
         }
 
         inputPaxTable.setItems(FXCollections.observableArrayList(rows));
+        allInputRows.setAll(rows);
 
         // Populating Output Pax Table (outputPassengers values)
         List<TableRow> outputRows = new ArrayList<>();
@@ -215,6 +231,7 @@ public class MainController {
             outputRows.add(new TableRow(j++, p.getName(), p.getDtm(), p.getDocTypeWithParens(), p.getRecordedKey(), p.getSources(), p.getCount()));
         }
         outputPaxTable.setItems(FXCollections.observableArrayList(outputRows));
+        allOutputRows.setAll(outputRows);
 
         // Populating Results Summary
         int totalInputAll = result.getTotalInputAll();
@@ -317,6 +334,7 @@ public class MainController {
                     "", pnrRow.getSource(), pnrRow.getCount()));
             }
             inputPaxTable.setItems(FXCollections.observableArrayList(inputRows));
+            allInputRows.setAll(inputRows);
         }
         
         // Populate output PNR table using compatible TableRow structure
@@ -328,6 +346,7 @@ public class MainController {
                     "", pnrRow.getSource(), pnrRow.getCount()));
             }
             outputPaxTable.setItems(FXCollections.observableArrayList(outputRows));
+            allOutputRows.setAll(outputRows);
         }
         
         // Show dropped PNRs using compatible TableRow structure
@@ -570,6 +589,11 @@ public class MainController {
         public String getRecordedKey() { return recordedKey; }
         public String getSource() { return source; }
         public int getCount() { return count; }
+
+        @Override
+        public String toString() {
+            return (name + " " + dtm + " " + doc + " " + recordedKey + " " + source + " " + count);
+        }
     }
     
     // PNR-specific TableRow for better display structure
@@ -599,5 +623,29 @@ public class MainController {
         public String getDtm() { return locator; }
         public String getDoc() { return ""; }
         public String getRecordedKey() { return ""; }
+    }
+
+    private void filterInputTable(String filter) {
+        if (filter == null || filter.isEmpty()) {
+            inputPaxTable.setItems(allInputRows);
+            return;
+        }
+        String lower = filter.toLowerCase();
+        ObservableList<TableRow> filtered = allInputRows.filtered(row ->
+            row.toString().toLowerCase().contains(lower)
+        );
+        inputPaxTable.setItems(filtered);
+    }
+
+    private void filterOutputTable(String filter) {
+        if (filter == null || filter.isEmpty()) {
+            outputPaxTable.setItems(allOutputRows);
+            return;
+        }
+        String lower = filter.toLowerCase();
+        ObservableList<TableRow> filtered = allOutputRows.filtered(row ->
+            row.toString().toLowerCase().contains(lower)
+        );
+        outputPaxTable.setItems(filtered);
     }
 }

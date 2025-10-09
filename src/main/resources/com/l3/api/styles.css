@@ -34,6 +34,18 @@
     -fx-background-radius: 4, 2; /* rounded corners */
     -fx-text-fill: White;
     -fx-font-weight: bold;
+        -fx-cursor: hand;
+    -fx-transition: background-color 0.2s;
+}
+
+.tool_bar_button:hover {
+   -fx-background-color: linear-gradient(to bottom, #436143, #2b3e2b);
+   -fx-text-fill: white;
+}
+
+.tool_bar_button:pressed {
+   -fx-background-color: linear-gradient(to bottom, #1a251a, #2b3e2b);
+   -fx-text-fill: white;
 }
 
 .result_hbox{

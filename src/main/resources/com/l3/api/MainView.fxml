@@ -11,6 +11,7 @@
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.TitledPane?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
@@ -234,11 +235,7 @@
                   <children>
                      <VBox alignment="CENTER" maxWidth="1.7976931348623157E308">
                         <children>
-                           <Label alignment="CENTER" contentDisplay="CENTER" maxWidth="1.7976931348623157E308" prefHeight="17.0" prefWidth="653.0" text="Input Passengers">
-                              <font>
-                                 <Font size="16.0" />
-                              </font>
-                           </Label>
+                           <TextField fx:id="inputSearchField" alignment="CENTER" promptText="Input Passengers" />
                               <TableView fx:id="inputPaxTable" maxWidth="1.7976931348623157E308" prefHeight="420" prefWidth="857.0">
                                   <columns>
                                       <TableColumn fx:id="inputPaxColNo" prefWidth="50" text="No." />
@@ -254,11 +251,7 @@
                      </VBox>
                      <VBox alignment="CENTER" maxWidth="1.7976931348623157E308">
                         <children>
-                           <Label alignment="CENTER" contentDisplay="CENTER" maxWidth="1.7976931348623157E308" prefHeight="17.0" prefWidth="653.0" text="Output Passengers">
-                              <font>
-                                 <Font size="16.0" />
-                              </font>
-                           </Label>
+                           <TextField fx:id="outputSearchField" alignment="CENTER" promptText="Output Passengers" />
                            <TableView fx:id="outputPaxTable" maxWidth="1.7976931348623157E308" prefHeight="420" prefWidth="857.0">
                               <columns>
                                  <TableColumn fx:id="outputPaxColNo" prefWidth="50" text="No." />
