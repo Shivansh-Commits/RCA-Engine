@@ -9,12 +9,19 @@ module com.l3.api {
     requires java.desktop;
 
     opens com.l3.api to javafx.fxml;
-    opens com.l3.api.controller to javafx.fxml;
+    opens com.l3.controller to javafx.fxml;
     opens com.l3.api.model to javafx.fxml;
-    opens com.l3.api.apiutils to javafx.fxml;
+    opens com.l3.api.utils to javafx.fxml;
+    opens com.l3.common.reporting to javafx.fxml;
+    opens com.l3.pnr to javafx.fxml;
+    opens com.l3.pnr.model to javafx.fxml;
+    opens com.l3.pnr.utils to javafx.fxml;
 
-    exports com.l3.api;
-    exports com.l3.api.controller;
+    exports com.l3.controller;
     exports com.l3.api.model;
-    exports com.l3.api.apiutils;
+    exports com.l3.api.utils;
+    exports com.l3.common.reporting;
+    exports com.l3.pnr;
+    exports com.l3.pnr.model;
+    exports com.l3.pnr.utils;
 }
