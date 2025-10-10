@@ -17,6 +17,16 @@ module com.l3.api {
     opens com.l3.pnr.model to javafx.fxml;
     opens com.l3.pnr.utils to javafx.fxml;
 
+    // Launcher module
+    opens com.l3.launcher to javafx.fxml;
+
+    // Log parser module
+    opens com.l3.logparser to javafx.fxml;
+    opens com.l3.logparser.controller to javafx.fxml;
+    opens com.l3.logparser.model to javafx.fxml;
+    opens com.l3.logparser.service to javafx.fxml;
+    opens com.l3.logparser.parser to javafx.fxml;
+
     exports com.l3.controller;
     exports com.l3.api.model;
     exports com.l3.api.utils;
@@ -24,4 +34,14 @@ module com.l3.api {
     exports com.l3.pnr;
     exports com.l3.pnr.model;
     exports com.l3.pnr.utils;
+
+    // Launcher exports
+    exports com.l3.launcher;
+
+    // Log parser exports
+    exports com.l3.logparser;
+    exports com.l3.logparser.controller;
+    exports com.l3.logparser.model;
+    exports com.l3.logparser.service;
+    exports com.l3.logparser.parser;
 }
