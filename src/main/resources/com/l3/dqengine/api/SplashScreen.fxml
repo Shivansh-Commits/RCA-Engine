@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="com.l3.dqengine.controller.SplashScreenController"
+      styleClass="splash-root" prefWidth="600" prefHeight="400"
+      stylesheets="@splash-styles.css">
+
+    <VBox styleClass="splash-container" fx:id="splashContent">
+        <ImageView fx:id="logoImageView" styleClass="splash-logo"
+                   fitHeight="120" fitWidth="120"
+                   pickOnBounds="true" preserveRatio="true" />
+
+        <Label text="API/PNR Data Quality Engine" styleClass="splash-title" />
+        <Label text="Initializing..." styleClass="splash-subtitle" />
+
+        <ProgressBar fx:id="progressBar" styleClass="splash-progress"
+                     progress="0" prefWidth="400" />
+    </VBox>
+
+</VBox>

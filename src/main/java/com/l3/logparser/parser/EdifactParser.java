@@ -4,8 +4,6 @@ import com.l3.logparser.model.EdifactMessage;
 import com.l3.logparser.model.FlightDetails;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Parser for EDIFACT messages found in log files
@@ -222,11 +220,17 @@ public class EdifactParser {
                 currentEdifactMessage = new EdifactMessage();
                 inMessage = true;
 
+                // Extract and include UNA segment from the warning line
                 String contentAfterBracket = "";
                 int bracketIndex = line.indexOf("[");
                 if (bracketIndex != -1 && bracketIndex < line.length() - 1) {
                     contentAfterBracket = line.substring(bracketIndex + 1).trim();
                     if (!contentAfterBracket.isEmpty()) {
+                        // Check if this line contains UNA segment
+                        if (contentAfterBracket.startsWith("UNA")) {
+                            // Parse UNA to get separators
+                            parseUNA(contentAfterBracket);
+                        }
                         currentMessage.append(contentAfterBracket).append("\n");
                     }
                 }
@@ -387,6 +391,7 @@ public class EdifactParser {
                                                EdifactMessage currentEdifactMessage,
                                                List<EdifactMessage> messages,
                                                String targetFlightNumber) {
+
         // Extract the EDIFACT content after the UNA header (UNA + 6 separators = 9 chars)
         String edifactContent = unaLine.substring(9); // Skip "UNA" + 6 separators
 
@@ -842,4 +847,3 @@ public class EdifactParser {
         }
     }
 }
-

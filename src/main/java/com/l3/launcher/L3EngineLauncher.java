@@ -1,7 +1,7 @@
 package com.l3.launcher;
 
 import com.l3.logparser.MessageExtractorApplication;
-import com.l3.controller.MainApp;
+import com.l3.dqengine.controller.MainApp;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
