@@ -96,6 +96,18 @@ public class FileParser {
                     }
                 }
 
+                // NEW: capture duplicates that occurred within the same file (count > 1) that would otherwise be missed
+                for (Map.Entry<String, Passenger> e : inputMap.entrySet()) {
+                    Passenger p = e.getValue();
+                    if (p.getCount() > 1) {
+                        // Use the merged instance from globalInputPassengers so count reflects any cross-file additions too
+                        Passenger merged = globalInputPassengers.get(e.getKey());
+                        if (merged != null) {
+                            duplicatePassengers.put(e.getKey(), merged);
+                        }
+                    }
+                }
+
                 // Also collect warnings (stored in map values as lists)
                 for (Passenger p : inputMap.values()) {
                     allInvalidNads.addAll(p.getInvalidNads());
@@ -457,30 +469,30 @@ public class FileParser {
                         String dayStr = dateTimeStr.substring(4, 6);
                         String hourStr = dateTimeStr.substring(6, 8);
                         String minuteStr = dateTimeStr.substring(8, 10);
-                        
+
                         // Format date as DD/MM/YYYY
                         depDate = dayStr + "/" + monthStr + "/20" + yearStr;
                         depTime = hourStr + minuteStr;
                     }
                 }
             }
-            
+
             // Break early if all required data is found
             if (flightNo != null && depDate != null && depTime != null && !depPort.isEmpty() && !arrPort.isEmpty()) {
                 break;
             }
         }
-        
+
         if (flightNo == null) {
             throw new IOException("Flight number not found in TDT segment for API mode.");
         }
         if (depDate == null || depTime == null) {
             throw new IOException("Departure date/time not found in DTM segment for API mode.");
         }
-        
+
         return new Flight(flightNo, depTime, depDate, depPort, arrPort);
     }
-    
+
     /**
      * Original UNH-based flight extraction logic for non-API modes
      */
