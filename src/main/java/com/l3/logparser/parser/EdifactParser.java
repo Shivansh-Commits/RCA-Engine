@@ -107,9 +107,6 @@ public class EdifactParser {
         List<EdifactMessage> messages = new ArrayList<>();
         String[] lines = logContent.split("\\r?\\n");
 
-        System.out.println("=== EDIFACT PARSER ===");
-        System.out.println("Processing " + lines.length + " lines for flight: " + targetFlightNumber);
-
         boolean inMessage = false;
         StringBuilder currentMessage = new StringBuilder();
         EdifactMessage currentEdifactMessage = null;
@@ -125,7 +122,6 @@ public class EdifactParser {
 
             // Check for start of EDIFACT message with $STX$UNA
             if (line.contains("$STX$UNA")) {
-                System.out.println("Found $STX$UNA at line " + lineNumber);
 
                 // Save previous message if exists
                 if (currentEdifactMessage != null && currentMessage.length() > 0) {
@@ -159,7 +155,6 @@ public class EdifactParser {
             // Check for MessageForwarder INFO logs containing EDIFACT messages
             else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR") &&
                     line.contains("Message body [UNA:")) {
-                System.out.println("Found MessageForwarder log at line " + lineNumber);
 
                 // Save previous message if exists
                 if (currentEdifactMessage != null && currentMessage.length() > 0) {
@@ -196,7 +191,6 @@ public class EdifactParser {
             }
             // Check for WARN logs with "Failed to parse API message" containing EDIFACT
             else if (line.contains("Failed to parse API message") && line.contains("[UNA:")) {
-                System.out.println("Found Failed API message at line " + lineNumber);
 
                 // Save previous message if exists
                 if (currentEdifactMessage != null && currentMessage.length() > 0) {
@@ -318,11 +312,6 @@ public class EdifactParser {
                     currentUnaSegment = null;
                 }
             }
-
-            // Progress indicator for large files
-            if (lineNumber % 10000 == 0) {
-                System.out.println("Processed " + lineNumber + " lines, found " + foundMessages + " messages");
-            }
         }
 
         // Handle last message if file doesn't end properly
@@ -331,8 +320,6 @@ public class EdifactParser {
             foundMessages++;
         }
 
-        System.out.println("=== PARSING COMPLETE ===");
-        System.out.println("Total messages extracted: " + messages.size());
         return messages;
     }
 
@@ -346,9 +333,6 @@ public class EdifactParser {
             currentEdifactMessage.setRawContent(currentMessage.toString());
             if (matchesFlightCriteria(currentEdifactMessage, targetFlightNumber)) {
                 messages.add(currentEdifactMessage);
-                System.out.println("Added previous message to results");
-            } else {
-                System.out.println("Previous message didn't match flight criteria");
             }
         }
 
@@ -362,11 +346,7 @@ public class EdifactParser {
         }
 
         if (unaLine != null) {
-            System.out.println("Extracted UNA line: " + unaLine);
             boolean unaParseSuccess = parseUNA(unaLine);
-            System.out.println("UNA parse success: " + unaParseSuccess);
-            System.out.println("Separators - Element: '" + elementSeparator + "', Sub-element: '" + subElementSeparator + "', Terminator: '" + terminatorSeparator + "'");
-
             EdifactMessage newMessage = new EdifactMessage();
             StringBuilder newMessageContent = new StringBuilder();
 
@@ -389,7 +369,6 @@ public class EdifactParser {
             // Verify this is likely a separator by checking if it appears multiple times in the expected pattern
             String afterUnh = line.substring(unhIndex + 3);
             if (afterUnh.length() > 3 && afterUnh.charAt(2) == possibleSeparator) {
-                System.out.println("Detected element separator: '" + possibleSeparator + "'");
                 return possibleSeparator;
             }
         }
@@ -493,20 +472,17 @@ public class EdifactParser {
             // If we have a stored UNA segment, prepend it
             if (unaSegment != null && !unaSegment.isEmpty()) {
                 messageContent = unaSegment + "\n" + messageContent;
-                System.out.println("Prepended UNA segment to message: " + unaSegment);
             } else {
                 // Fallback: construct UNA segment from current separators
                 String constructedUNA = "UNA" + subElementSeparator + elementSeparator + decimalSeparator +
                                        releaseIndicator + reservedSeparator + terminatorSeparator;
                 messageContent = constructedUNA + "\n" + messageContent;
-                System.out.println("Constructed and prepended UNA segment: " + constructedUNA);
             }
         }
 
         currentEdifactMessage.setRawContent(messageContent);
         if (matchesFlightCriteria(currentEdifactMessage, targetFlightNumber)) {
             messages.add(currentEdifactMessage);
-            System.out.println("Successfully added message with UNA segment preserved");
         }
     }
 
@@ -809,9 +785,6 @@ public class EdifactParser {
                                                 EdifactMessage currentEdifactMessage,
                                                 List<EdifactMessage> messages,
                                                 String targetFlightNumber) {
-        System.out.println("=== PROCESSING MESSAGEFORWARDER EDIFACT ===");
-        System.out.println("Raw content length: " + edifactContent.length());
-        System.out.println("Raw content preview: " + edifactContent.substring(0, Math.min(200, edifactContent.length())));
 
         // Extract UNA segment from MessageForwarder content for preservation
         String unaSegment = null;
@@ -835,12 +808,10 @@ public class EdifactParser {
                 }
             }
             normalizedContent = rebuiltContent.toString();
-            System.out.println("Converted single-line to multi-line format");
         }
 
         // Split into lines/segments for processing
         String[] segments = normalizedContent.split("\\r?\\n");
-        System.out.println("Processing " + segments.length + " segments");
 
         boolean foundUNA = false;
         boolean foundUNH = false;
@@ -855,20 +826,17 @@ public class EdifactParser {
                 }
                 currentMessage.append("\n");
 
-                System.out.println("Processing segment " + (i+1) + ": " + segment.substring(0, Math.min(50, segment.length())));
 
                 // Parse UNA header to get separators
                 if (segment.startsWith("UNA")) {
                     parseUNA(segment);
                     foundUNA = true;
-                    System.out.println("Found UNA in MessageForwarder: " + segment);
                 }
 
                 // Parse UNH segment for message details
                 else if (segment.startsWith("UNH" + elementSeparator)) {
                     parseUNH(segment + terminatorSeparator, currentEdifactMessage);
                     foundUNH = true;
-                    System.out.println("Found UNH in MessageForwarder: " + segment);
                 }
 
                 // Parse flight details from various segments
@@ -878,13 +846,11 @@ public class EdifactParser {
                     // Track important segments
                     if (segment.startsWith("TDT" + elementSeparator)) {
                         foundTDT = true;
-                        System.out.println("Found TDT (flight) in MessageForwarder: " + segment);
                     }
                 }
 
                 // Check for end of message (UNZ segment typically ends EDIFACT)
                 if (segment.startsWith("UNZ" + elementSeparator)) {
-                    System.out.println("Found UNZ in MessageForwarder: " + segment);
                     break; // Stop processing segments after UNZ
                 }
             }
@@ -893,8 +859,6 @@ public class EdifactParser {
         // CRITICAL: Set message type as OUTPUT for MessageForwarder messages
         if (currentEdifactMessage != null) {
             currentEdifactMessage.setMessageType("OUTPUT");
-            System.out.println("Set message type to OUTPUT for MessageForwarder message: " + currentEdifactMessage.getMessageId());
-            System.out.println("MessageForwarder parsing summary - UNA: " + foundUNA + ", UNH: " + foundUNH + ", TDT: " + foundTDT);
         }
 
         // Complete the MessageForwarder message processing using finalizeMessageWithUNA

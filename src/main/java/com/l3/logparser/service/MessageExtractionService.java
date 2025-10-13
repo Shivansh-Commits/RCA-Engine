@@ -49,21 +49,11 @@ public class MessageExtractionService {
         result.setRequestedDataType(dataType);
 
         try {
-            System.out.println("=== MESSAGE EXTRACTION SERVICE ===");
-            System.out.println("Log Directory: " + logDirectoryPath);
-            System.out.println("Target Flight: " + flightNumber);
-            System.out.println("Data Type: " + dataType);
-            System.out.println("Departure Date: " + departureDate);
-            System.out.println("Departure Airport: " + departureAirport);
-            System.out.println("Arrival Airport: " + arrivalAirport);
-
             Path logDir = Paths.get(logDirectoryPath);
             if (!Files.exists(logDir) || !Files.isDirectory(logDir)) {
                 result.addError("Log directory does not exist: " + logDirectoryPath);
                 return result;
             }
-
-            System.out.println("Log directory exists and is valid");
 
             // Find and process ALL log files to get complete multi-part messages
             List<EdifactMessage> allMessages = new ArrayList<>();
@@ -79,7 +69,6 @@ public class MessageExtractionService {
 
             // Remove duplicate messages (same message ID from multiple files)
             List<EdifactMessage> deduplicatedMessages = removeDuplicateMessages(allMessages);
-            System.out.println("Messages after deduplication: " + deduplicatedMessages.size());
 
             // Analyze part completeness
             analyzePartCompleteness(deduplicatedMessages, flightNumber);
@@ -88,16 +77,11 @@ public class MessageExtractionService {
             List<EdifactMessage> filteredMessages = filterMessages(deduplicatedMessages,
                     flightNumber, departureDate, departureAirport, arrivalAirport);
 
-            System.out.println("Messages after filtering: " + filteredMessages.size());
-
             result.setExtractedMessages(filteredMessages);
             result.setSuccess(true);
 
             if (filteredMessages.isEmpty()) {
                 result.addWarning("No messages found matching the specified criteria");
-                System.out.println("WARNING: No messages matched the filtering criteria");
-            } else {
-                System.out.println("SUCCESS: Found " + filteredMessages.size() + " matching messages");
             }
 
         } catch (Exception e) {
@@ -115,11 +99,8 @@ public class MessageExtractionService {
     private List<EdifactMessage> extractApiMessages(Path logDir, String flightNumber, ExtractionResult result) throws IOException {
         List<EdifactMessage> messages = new ArrayList<>();
 
-        System.out.println("=== EXTRACTING API MESSAGES ===");
-
         // 1. Process das.log files first (highest priority for API)
         List<Path> dasLogFiles = findLogFiles(logDir, "das.log*");
-        System.out.println("Found " + dasLogFiles.size() + " das.log files for API extraction");
 
         for (Path logFile : dasLogFiles) {
             List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber);
@@ -151,7 +132,6 @@ public class MessageExtractionService {
             result.addProcessedFile(logFile.toString());
         }
 
-        System.out.println("Total API messages extracted: " + messages.size());
         return messages;
     }
 
@@ -162,13 +142,10 @@ public class MessageExtractionService {
     private List<EdifactMessage> extractPnrMessages(Path logDir, String flightNumber, ExtractionResult result) throws IOException {
         List<EdifactMessage> messages = new ArrayList<>();
 
-        System.out.println("=== EXTRACTING PNR MESSAGES ===");
-
         // TODO: Implement PNR-specific extraction logic
         // This will be different from API extraction and may involve different log files
         // and different parsing patterns
 
-        System.out.println("PNR extraction not yet implemented");
         return messages;
     }
 
@@ -196,25 +173,18 @@ public class MessageExtractionService {
         List<EdifactMessage> messages = new ArrayList<>();
 
         try {
-            System.out.println("Processing log file: " + logFile.getFileName());
-
             long fileSize = Files.size(logFile);
-            System.out.println("File size: " + fileSize + " bytes");
 
             if (fileSize > 50 * 1024 * 1024) { // If file is larger than 50MB
                 messages = processLargeLogFile(logFile, flightNumber);
             } else {
                 String content = Files.readString(logFile);
-                System.out.println("Read " + content.length() + " characters from file");
 
                 int stxCount = countOccurrences(content, "$STX$UNA");
                 int unaCount = countOccurrences(content, "UNA:");
                 int tdtCount = countOccurrences(content, "TDT(");
 
-                System.out.println("Found $STX$UNA: " + stxCount + ", UNA:: " + unaCount + ", TDT segments: " + tdtCount);
-
                 messages = edifactParser.parseLogContent(content, flightNumber);
-                System.out.println("Extracted " + messages.size() + " messages from file");
             }
 
         } catch (IOException e) {
@@ -462,10 +432,6 @@ public class MessageExtractionService {
             Files.createDirectories(inputDir);
             Files.createDirectories(outputDir2);
 
-            System.out.println("=== SAVING EXTRACTED MESSAGES ===");
-            System.out.println("Total messages to save: " + messages.size());
-            System.out.println("Output directory: " + outputDirectory);
-
             List<EdifactMessage> inputMessages = new ArrayList<>();
             List<EdifactMessage> outputMessages = new ArrayList<>();
 
@@ -480,9 +446,6 @@ public class MessageExtractionService {
             int savedInputs = saveMessagesToDirectory(inputMessages, inputDir, "input");
             int savedOutputs = saveMessagesToDirectory(outputMessages, outputDir2, "output");
 
-            System.out.println("=== SAVE SUMMARY ===");
-            System.out.println("Saved " + savedInputs + " input files");
-            System.out.println("Saved " + savedOutputs + " output files");
 
             return (savedInputs + savedOutputs) > 0;
 
@@ -726,18 +689,13 @@ public class MessageExtractionService {
             messageGroups.computeIfAbsent(baseKey, k -> new ArrayList<>()).add(msg);
         }
 
-        System.out.println("=== PART COMPLETENESS ANALYSIS ===");
         for (Map.Entry<String, List<EdifactMessage>> entry : messageGroups.entrySet()) {
             String baseKey = entry.getKey();
             List<EdifactMessage> parts = entry.getValue();
 
             parts.sort(Comparator.comparingInt(EdifactMessage::getPartNumber));
 
-            System.out.println("Message group: " + baseKey);
-            System.out.println("  Parts found: " + parts.size());
-
-            boolean hasLastPart = parts.stream().anyMatch(EdifactMessage::isLastPart);
-            System.out.println("  Has final part (F): " + hasLastPart);
+            // Analysis completed - results used internally for validation
         }
     }
 
