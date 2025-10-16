@@ -21,16 +21,19 @@ module com.l3.api {
     // Launcher module
     opens com.l3.launcher to javafx.fxml;
 
-    // Log parser module - FIXED: Added javafx.base for TableView PropertyValueFactory
+    // Log parser module - CORRECTED: Controller is now shared between API and PNR
     opens com.l3.logparser to javafx.fxml;
-    opens com.l3.logparser.controller to javafx.fxml, javafx.base;
-    opens com.l3.logparser.model to javafx.fxml, javafx.base;
-    opens com.l3.logparser.service to javafx.fxml;
-    opens com.l3.logparser.parser to javafx.fxml;
     opens com.l3.logparser.enums to javafx.base;
+    opens com.l3.logparser.controller to javafx.fxml, javafx.base; // Shared controller
+
+    // API log parser packages (business logic only)
+    opens com.l3.logparser.api.model to javafx.fxml, javafx.base;
+    opens com.l3.logparser.api.service to javafx.fxml;
+    opens com.l3.logparser.api.parser to javafx.fxml;
 
     // Exports (updated to new structure)
     exports com.l3.dqengine.controller;
     exports com.l3.dqengine.api.model;
     exports com.l3.launcher;
+    exports com.l3.logparser; // Export logparser package for JavaFX access
 }

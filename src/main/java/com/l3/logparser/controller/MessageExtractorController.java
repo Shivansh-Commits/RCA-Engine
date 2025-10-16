@@ -1,8 +1,8 @@
 package com.l3.logparser.controller;
 
-import com.l3.logparser.model.EdifactMessage;
-import com.l3.logparser.model.FlightDetails;
-import com.l3.logparser.service.MessageExtractionService;
+import com.l3.logparser.api.model.EdifactMessage;
+import com.l3.logparser.api.model.FlightDetails;
+import com.l3.logparser.api.service.MessageExtractionService;
 import com.l3.logparser.enums.DataType;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;

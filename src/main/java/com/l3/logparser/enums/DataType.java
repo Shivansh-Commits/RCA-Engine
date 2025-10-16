@@ -12,12 +12,7 @@ public enum DataType {
     /**
      * Extract only PNR (Passenger Name Record) data
      */
-    PNR("PNR"),
-
-    /**
-     * Extract both API and PNR data
-     */
-    BOTH("Both");
+    PNR("PNR");
 
     private final String displayName;
 

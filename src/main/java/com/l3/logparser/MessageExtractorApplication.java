@@ -1,5 +1,6 @@
 package com.l3.logparser;
 
+import com.l3.logparser.controller.MessageExtractorController;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
