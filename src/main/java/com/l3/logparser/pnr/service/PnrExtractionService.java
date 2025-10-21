@@ -519,28 +519,6 @@ public class PnrExtractionService {
 
             // Write individual message to file
             try (BufferedWriter writer = Files.newBufferedWriter(outputFile)) {
-                writer.write("=== PNR " + directionLabel + " Message - Flight " + flightNumber + " ===\n");
-                writer.write("Part " + message.getPartNumber() + " (" + message.getPartIndicator() + 
-                           ") - Message ID: " + message.getMessageId() + "\n");
-                
-                if (message.getLogTimestamp() != null) {
-                    writer.write("Timestamp: " + message.getLogTimestamp() + "\n");
-                }
-                if (message.getLogTraceId() != null) {
-                    writer.write("Trace ID: " + message.getLogTraceId() + "\n");
-                }
-                writer.write("Direction: " + directionLabel + "\n");
-                
-                // Add multipart information
-                if (message.isMultipart()) {
-                    writer.write("Multipart: Yes (Part " + message.getPartNumber() + 
-                               " of multipart sequence, " + 
-                               (message.isLastPart() ? "Final" : "Continuation") + ")\n");
-                } else {
-                    writer.write("Multipart: No (Single part message)\n");
-                }
-                
-                writer.write("\n=== EDIFACT Content ===\n");
                 writer.write(message.getRawContent());
                 writer.write("\n");
             }

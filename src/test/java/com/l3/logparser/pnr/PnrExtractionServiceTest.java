@@ -166,9 +166,9 @@ class PnrExtractionServiceTest {
         assertTrue(Files.exists(savedFile));
 
         String content = Files.readString(savedFile);
-        assertTrue(content.contains("Part 1"));
-        assertTrue(content.contains("Message ID: 12345"));
         assertTrue(content.contains("UNA:+.?*'"));
+        assertTrue(content.contains("12345")); // Message ID appears in EDIFACT content
+        assertTrue(content.contains("EK0160")); // Flight number should be in content
 
         System.out.println("✅ PNR file saving test completed successfully!");
     }
