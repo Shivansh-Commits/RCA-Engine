@@ -5,6 +5,8 @@ import com.l3.logparser.model.FlightDetails;
 import com.l3.logparser.parser.EdifactParser;
 import com.l3.logparser.enums.MessageType;
 import com.l3.logparser.enums.DataType;
+import com.l3.logparser.pnr.service.PnrExtractionService;
+import com.l3.logparser.pnr.model.PnrMessage;
 
 import java.io.*;
 import java.nio.file.*;
@@ -18,12 +20,14 @@ import java.util.stream.Collectors;
 public class MessageExtractionService {
 
     private final EdifactParser edifactParser;
+    private final PnrExtractionService pnrExtractionService;
     private static final List<String> LOG_FILE_PATTERNS = Arrays.asList(
             "das.log*", "MessageTypeB.log*", "MessageAPI.log*", "MessageForwarder.log*"
     );
 
     public MessageExtractionService() {
         this.edifactParser = new EdifactParser();
+        this.pnrExtractionService = new PnrExtractionService();
     }
 
     /**
@@ -137,16 +141,81 @@ public class MessageExtractionService {
 
     /**
      * Extract PNR messages from log files
-     * This method will be implemented for PNR-specific extraction logic
+     * Uses the dedicated PNR extraction service for MessageMHPNRGOV.log* files
      */
     private List<EdifactMessage> extractPnrMessages(Path logDir, String flightNumber, ExtractionResult result) throws IOException {
         List<EdifactMessage> messages = new ArrayList<>();
 
-        // TODO: Implement PNR-specific extraction logic
-        // This will be different from API extraction and may involve different log files
-        // and different parsing patterns
+        try {
+            // Use the dedicated PNR extraction service
+            PnrExtractionService.PnrExtractionResult pnrResult = 
+                pnrExtractionService.extractPnrMessages(
+                    logDir.toString(), flightNumber, null, null, null);
+
+            // Add processed files to the main result
+            pnrResult.getProcessedFiles().forEach(result::addProcessedFile);
+            
+            // Add any errors or warnings
+            pnrResult.getErrors().forEach(result::addError);
+            pnrResult.getWarnings().forEach(result::addWarning);
+
+            // Convert PnrMessage objects to EdifactMessage objects for compatibility
+            for (PnrMessage pnrMessage : pnrResult.getExtractedMessages()) {
+                EdifactMessage edifactMessage = convertPnrToEdifactMessage(pnrMessage);
+                messages.add(edifactMessage);
+            }
+
+            System.out.println("PNR extraction completed: " + messages.size() + " messages found");
+            
+        } catch (Exception e) {
+            result.addError("Error in PNR extraction: " + e.getMessage());
+            System.err.println("Error in PNR extraction: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         return messages;
+    }
+
+    /**
+     * Convert PnrMessage to EdifactMessage for compatibility with existing UI and processing
+     */
+    private EdifactMessage convertPnrToEdifactMessage(PnrMessage pnrMessage) {
+        EdifactMessage edifactMessage = new EdifactMessage();
+        
+        edifactMessage.setMessageId(pnrMessage.getMessageId());
+        edifactMessage.setFlightNumber(pnrMessage.getFlightNumber());
+        edifactMessage.setPartNumber(pnrMessage.getPartNumber());
+        edifactMessage.setLastPart(pnrMessage.isLastPart());
+        edifactMessage.setPartIndicator(pnrMessage.getPartIndicator());
+        edifactMessage.setMessageType(pnrMessage.getMessageType());
+        edifactMessage.setRawContent(pnrMessage.getRawContent());
+        edifactMessage.setDataType("PNR"); // Set as PNR data type
+        
+        // Convert PnrFlightDetails to FlightDetails if available
+        if (pnrMessage.getFlightDetails() != null) {
+            FlightDetails flightDetails = convertPnrFlightDetails(pnrMessage.getFlightDetails());
+            edifactMessage.setFlightDetails(flightDetails);
+        }
+        
+        return edifactMessage;
+    }
+
+    /**
+     * Convert PnrFlightDetails to FlightDetails for compatibility
+     */
+    private FlightDetails convertPnrFlightDetails(com.l3.logparser.pnr.model.PnrFlightDetails pnrDetails) {
+        FlightDetails flightDetails = new FlightDetails();
+        
+        flightDetails.setFlightNumber(pnrDetails.getFullFlightNumber());
+        flightDetails.setDepartureAirport(pnrDetails.getDepartureAirport());
+        flightDetails.setArrivalAirport(pnrDetails.getArrivalAirport());
+        flightDetails.setDepartureDate(pnrDetails.getDepartureDate());
+        flightDetails.setDepartureTime(pnrDetails.getDepartureTime());
+        flightDetails.setArrivalDate(pnrDetails.getArrivalDate());
+        flightDetails.setArrivalTime(pnrDetails.getArrivalTime());
+        flightDetails.setPassengerData(true); // PNR is typically passenger data
+        
+        return flightDetails;
     }
 
     /**

@@ -83,11 +83,29 @@ public class MessageExtractorController implements Initializable {
         resultsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             if (newSelection != null) {
                 EdifactMessage message = newSelection.getOriginalMessage();
-                messagePreviewArea.setText(message.getRawContent());
+                String formattedContent = formatEdifactMessage(message.getRawContent());
+                messagePreviewArea.setText(formattedContent);
             } else {
                 messagePreviewArea.clear();
             }
         });
+    }
+
+    /**
+     * Formats EDIFACT message content by placing each segment on a separate line.
+     * Replaces segment terminator characters (') with line breaks for better readability.
+     * 
+     * @param rawContent The raw EDIFACT message content
+     * @return Formatted message with segments on separate lines
+     */
+    private String formatEdifactMessage(String rawContent) {
+        if (rawContent == null || rawContent.trim().isEmpty()) {
+            return rawContent;
+        }
+        
+        // Replace EDIFACT segment terminators (') with line breaks
+        // The segment terminator is typically the last character in each segment
+        return rawContent.replace("'", "'\n");
     }
 
     private void setupUI() {
