@@ -5,6 +5,7 @@ import com.l3.logparser.api.model.FlightDetails;
 import com.l3.logparser.api.service.MessageExtractionService;
 import com.l3.logparser.pnr.service.PnrExtractionService;
 import com.l3.logparser.pnr.model.PnrMessage;
+import com.l3.logparser.pnr.model.PnrFlightDetails;
 import com.l3.logparser.enums.DataType;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -184,8 +185,35 @@ public class MessageExtractorController implements Initializable {
         Task<MessageExtractionService.ExtractionResult> task = new Task<MessageExtractionService.ExtractionResult>() {
             @Override
             protected MessageExtractionService.ExtractionResult call() throws Exception {
-                return messageExtractionService.extractMessages(
-                    logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport, selectedDataType);
+                if (selectedDataType == DataType.PNR) {
+                    // Use PNR service for proper filtering and analysis
+                    PnrExtractionService.PnrExtractionResult pnrResult = pnrExtractionService.extractPnrMessages(
+                        logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport);
+                    
+                    // Convert PNR result to generic result format
+                    MessageExtractionService.ExtractionResult genericResult = 
+                        new MessageExtractionService.ExtractionResult();
+                    genericResult.setRequestedDataType(selectedDataType);
+                    genericResult.setSuccess(pnrResult.isSuccess());
+                    
+                    // Set flight number and log directory from PNR result
+                    genericResult.setFlightNumber(pnrResult.getFlightNumber());
+                    genericResult.setLogDirectoryPath(pnrResult.getLogDirectoryPath());
+                    
+                    // Convert PNR messages to generic EDIFACT messages
+                    List<EdifactMessage> edifactMessages = convertPnrToEdifactMessages(pnrResult.getExtractedMessages());
+                    genericResult.setExtractedMessages(edifactMessages);
+                    
+                    // Copy warnings and errors
+                    genericResult.getWarnings().addAll(pnrResult.getWarnings());
+                    genericResult.getErrors().addAll(pnrResult.getErrors());
+                    
+                    return genericResult;
+                } else {
+                    // Use generic service for other data types
+                    return messageExtractionService.extractMessages(
+                        logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport, selectedDataType);
+                }
             }
 
             @Override
@@ -303,6 +331,46 @@ public class MessageExtractorController implements Initializable {
         return pnrMessages;
     }
 
+    /**
+     * Convert PnrMessage list to EdifactMessage list for UI display
+     */
+    private List<EdifactMessage> convertPnrToEdifactMessages(List<PnrMessage> pnrMessages) {
+        List<EdifactMessage> edifactMessages = new ArrayList<>();
+        
+        for (PnrMessage pnr : pnrMessages) {
+            EdifactMessage edifact = new EdifactMessage();
+            
+            // Copy common properties
+            edifact.setDirection(pnr.getDirection());
+            edifact.setPartNumber(pnr.getPartNumber());
+            edifact.setPartIndicator(pnr.getPartIndicator());
+            edifact.setFlightNumber(pnr.getFlightNumber());
+            edifact.setMessageId(pnr.getMessageId());
+            edifact.setRawContent(pnr.getRawContent());
+            edifact.setMessageType(pnr.getMessageType());
+            edifact.setLastPart(pnr.isLastPart());
+            
+            // Convert flight details if available
+            if (pnr.getFlightDetails() != null) {
+                FlightDetails flightDetails = new FlightDetails();
+                PnrFlightDetails pnrDetails = pnr.getFlightDetails();
+                flightDetails.setDepartureDate(pnrDetails.getDepartureDate());
+                flightDetails.setDepartureTime(pnrDetails.getDepartureTime());
+                flightDetails.setArrivalDate(pnrDetails.getArrivalDate());
+                flightDetails.setArrivalTime(pnrDetails.getArrivalTime());
+                flightDetails.setDepartureAirport(pnrDetails.getDepartureAirport());
+                flightDetails.setArrivalAirport(pnrDetails.getArrivalAirport());
+                flightDetails.setFlightNumber(pnrDetails.getFlightNumber());
+                // Note: FlightDetails doesn't have airlineCode field, so we skip it
+                edifact.setFlightDetails(flightDetails);
+            }
+            
+            edifactMessages.add(edifact);
+        }
+        
+        return edifactMessages;
+    }
+
     private void clearResults() {
         resultsTable.getItems().clear();
         logArea.clear();
@@ -338,8 +406,9 @@ public class MessageExtractorController implements Initializable {
 
         // Populate results table with sorted messages
         ObservableList<MessageTableRow> tableData = FXCollections.observableArrayList();
+        String requestedDataTypeDisplay = result.getRequestedDataType().getDisplayName();
         for (EdifactMessage message : sortedMessages) {
-            tableData.add(new MessageTableRow(message));
+            tableData.add(new MessageTableRow(message, requestedDataTypeDisplay));
         }
         resultsTable.setItems(tableData);
 
@@ -350,8 +419,14 @@ public class MessageExtractorController implements Initializable {
         addLogMessage("Log Directory: " + result.getLogDirectoryPath());
 
         // Count INPUT vs OUTPUT messages
-        long inputCount = sortedMessages.stream().filter(m -> !"OUTPUT".equals(m.getMessageType())).count();
-        long outputCount = sortedMessages.stream().filter(m -> "OUTPUT".equals(m.getMessageType())).count();
+        long inputCount = sortedMessages.stream().filter(m -> {
+            String direction = m.getDirection() != null ? m.getDirection().toString() : "INPUT";
+            return "INPUT".equals(direction);
+        }).count();
+        long outputCount = sortedMessages.stream().filter(m -> {
+            String direction = m.getDirection() != null ? m.getDirection().toString() : "INPUT";
+            return "OUTPUT".equals(direction);
+        }).count();
         addLogMessage("Input messages: " + inputCount + ", Output messages: " + outputCount);
 
         for (String file : result.getProcessedFiles()) {
@@ -405,6 +480,10 @@ public class MessageExtractorController implements Initializable {
         private final String partIndicator;
 
         public MessageTableRow(EdifactMessage message) {
+            this(message, message.getDataType() != null ? message.getDataType() : "Unknown");
+        }
+
+        public MessageTableRow(EdifactMessage message, String requestedDataType) {
             this.originalMessage = message;
             this.partNumber = message.getPartNumber();
 
@@ -414,13 +493,13 @@ public class MessageExtractorController implements Initializable {
                 this.departureDateTime = formatDateTime(details.getDepartureDate(), details.getDepartureTime());
                 this.departureAirport = details.getDepartureAirport() != null ? details.getDepartureAirport() : "N/A";
                 this.arrivalAirport = details.getArrivalAirport() != null ? details.getArrivalAirport() : "N/A";
-                this.dataType = message.getDataType() != null ? message.getDataType() : (details.isPassengerData() ? "Passenger" : "Crew");
+                this.dataType = requestedDataType; // Use the requested data type instead of message-level type
             } else {
                 this.flightNumber = message.getFlightNumber() != null ? message.getFlightNumber() : "N/A";
                 this.departureDateTime = "N/A";
                 this.departureAirport = "N/A";
                 this.arrivalAirport = "N/A";
-                this.dataType = message.getDataType() != null ? message.getDataType() : "Unknown";
+                this.dataType = requestedDataType; // Use the requested data type instead of message-level type
             }
 
             // Set part indicator based on message direction and part type
