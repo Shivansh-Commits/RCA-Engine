@@ -3,6 +3,8 @@ package com.l3.logparser.controller;
 import com.l3.logparser.api.model.EdifactMessage;
 import com.l3.logparser.api.model.FlightDetails;
 import com.l3.logparser.api.service.MessageExtractionService;
+import com.l3.logparser.pnr.service.PnrExtractionService;
+import com.l3.logparser.pnr.model.PnrMessage;
 import com.l3.logparser.enums.DataType;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -19,6 +21,7 @@ import java.io.File;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
 
@@ -58,11 +61,13 @@ public class MessageExtractorController implements Initializable {
     @FXML private Label summaryLabel;
 
     private MessageExtractionService messageExtractionService;
+    private PnrExtractionService pnrExtractionService;
     private MessageExtractionService.ExtractionResult lastResult;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         messageExtractionService = new MessageExtractionService();
+        pnrExtractionService = new PnrExtractionService();
         setupTableColumns();
         setupTableSelection();
         setupUI();
@@ -245,8 +250,18 @@ public class MessageExtractorController implements Initializable {
             return;
         }
 
-        boolean success = messageExtractionService.saveExtractedMessages(
-            lastResult.getExtractedMessages(), outputDirectory);
+        boolean success;
+        DataType dataType = lastResult != null ? lastResult.getRequestedDataType() : null;
+        
+        if (dataType == DataType.PNR) {
+            // Use PNR service for proper directory separation
+            List<PnrMessage> pnrMessages = convertToPnrMessages(lastResult.getExtractedMessages());
+            success = pnrExtractionService.saveExtractedMessages(pnrMessages, outputDirectory);
+        } else {
+            // Use generic service for other message types
+            success = messageExtractionService.saveExtractedMessages(
+                lastResult.getExtractedMessages(), outputDirectory);
+        }
 
         if (success) {
             showAlert("Success", "Extracted messages saved successfully to:\n" + outputDirectory);
@@ -254,6 +269,38 @@ public class MessageExtractorController implements Initializable {
         } else {
             showAlert("Error", "Failed to save extracted messages");
         }
+    }
+
+    /**
+     * Convert EdifactMessage list to PnrMessage list for PNR-specific operations
+     */
+    private List<PnrMessage> convertToPnrMessages(List<EdifactMessage> edifactMessages) {
+        List<PnrMessage> pnrMessages = new ArrayList<>();
+        
+        for (EdifactMessage edifact : edifactMessages) {
+            PnrMessage pnrMessage = new PnrMessage();
+            
+            // Copy common properties
+            pnrMessage.setDirection(edifact.getDirection());
+            pnrMessage.setPartNumber(edifact.getPartNumber());
+            pnrMessage.setPartIndicator(edifact.getPartIndicator());
+            pnrMessage.setFlightNumber(edifact.getFlightNumber());
+            pnrMessage.setMessageId(edifact.getMessageId());
+            pnrMessage.setRawContent(edifact.getRawContent());
+            // Note: EdifactMessage doesn't have timestamp/traceId fields
+            // These would need to be set from the original log parsing context
+            pnrMessage.setLogTimestamp(null);
+            pnrMessage.setLogTraceId(null);
+            pnrMessage.setMessageType("PNRGOV");
+            
+            // Set multipart flags
+            pnrMessage.setLastPart("F".equals(edifact.getPartIndicator()));
+            pnrMessage.setMultipart(edifact.getPartNumber() > 1 || "C".equals(edifact.getPartIndicator()));
+            
+            pnrMessages.add(pnrMessage);
+        }
+        
+        return pnrMessages;
     }
 
     private void clearResults() {
@@ -272,12 +319,12 @@ public class MessageExtractorController implements Initializable {
             result.getPartCount(), result.getProcessedFiles().size());
         summaryLabel.setText(summary);
 
-        // Sort extracted messages by message type (INPUT first, then OUTPUT) and then by part number
+        // Sort extracted messages by direction (INPUT first, then OUTPUT) and then by part number
         List<EdifactMessage> sortedMessages = result.getExtractedMessages().stream()
                 .sorted((m1, m2) -> {
-                    // First sort by message type (INPUT comes before OUTPUT)
-                    String type1 = m1.getMessageType() != null ? m1.getMessageType() : "INPUT";
-                    String type2 = m2.getMessageType() != null ? m2.getMessageType() : "INPUT";
+                    // First sort by direction (INPUT comes before OUTPUT)
+                    String type1 = m1.getDirection() != null ? m1.getDirection().toString() : "INPUT";
+                    String type2 = m2.getDirection() != null ? m2.getDirection().toString() : "INPUT";
                     int typeComparison = type1.compareTo(type2);
 
                     if (typeComparison != 0) {
@@ -376,7 +423,15 @@ public class MessageExtractorController implements Initializable {
                 this.dataType = message.getDataType() != null ? message.getDataType() : "Unknown";
             }
 
-            this.partIndicator = message.getPartIndicator() != null ? message.getPartIndicator() : "C";
+            // Set part indicator based on message direction and part type
+            if (message.getDirection() == com.l3.logparser.enums.MessageType.OUTPUT) {
+                // Output messages always show F(Output)
+                this.partIndicator = "F(Output)";
+            } else {
+                // Input messages: show actual part indicator (C for continuation, F for final)
+                String baseIndicator = message.getPartIndicator() != null ? message.getPartIndicator() : "C";
+                this.partIndicator = baseIndicator;
+            }
         }
 
         private String formatDateTime(String date, String time) {

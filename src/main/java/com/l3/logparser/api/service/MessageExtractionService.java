@@ -178,6 +178,7 @@ public class MessageExtractionService {
         edifactMessage.setPartIndicator(pnrMessage.getPartIndicator());
         edifactMessage.setMessageType(pnrMessage.getMessageType());
         edifactMessage.setRawContent(pnrMessage.getRawContent());
+        edifactMessage.setDirection(pnrMessage.getDirection()); // Set direction
 
         // Convert PNR flight details to API flight details if available
         if (pnrMessage.getFlightDetails() != null) {

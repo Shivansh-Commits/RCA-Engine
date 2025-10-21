@@ -1,5 +1,7 @@
 package com.l3.logparser.model;
 
+import com.l3.logparser.enums.MessageType;
+
 /**
  * Model representing an EDIFACT message part extracted from logs
  */
@@ -14,6 +16,7 @@ public class EdifactMessage {
     private String messageType; // PAXLST, etc.
     private String rawContent;
     private String dataType; // "PASSENGER" or "CREW" based on BGM segment
+    private MessageType direction; // INPUT or OUTPUT
 
     public EdifactMessage() {}
 
@@ -47,6 +50,9 @@ public class EdifactMessage {
 
     public String getRawContent() { return rawContent; }
     public void setRawContent(String rawContent) { this.rawContent = rawContent; }
+
+    public MessageType getDirection() { return direction; }
+    public void setDirection(MessageType direction) { this.direction = direction; }
 
     @Override
     public String toString() {
