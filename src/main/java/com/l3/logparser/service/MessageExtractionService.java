@@ -59,11 +59,11 @@ public class MessageExtractionService {
             List<EdifactMessage> allMessages = new ArrayList<>();
 
             // Process different log file types based on data type
-            if (dataType == DataType.API || dataType == DataType.BOTH) {
+            if (dataType == DataType.API ) {
                 allMessages.addAll(extractApiMessages(logDir, flightNumber, result));
             }
 
-            if (dataType == DataType.PNR || dataType == DataType.BOTH) {
+            if (dataType == DataType.PNR ) {
                 allMessages.addAll(extractPnrMessages(logDir, flightNumber, result));
             }
 
