@@ -9,14 +9,14 @@ module com.l3.api {
     requires java.desktop;
 
     // DQ Engine packages (new structure)
-    opens com.l3.dqengine.api to javafx.fxml;
-    opens com.l3.dqengine.controller to javafx.fxml, javafx.base;
-    opens com.l3.dqengine.api.model to javafx.fxml, javafx.base;
-    opens com.l3.dqengine.api.utils to javafx.fxml;
-    opens com.l3.dqengine.common.reporting to javafx.fxml;
-    opens com.l3.dqengine.pnr to javafx.fxml;
-    opens com.l3.dqengine.pnr.model to javafx.fxml, javafx.base;
-    opens com.l3.dqengine.pnr.utils to javafx.fxml;
+    opens com.l3.apipnrengine.api to javafx.fxml;
+    opens com.l3.apipnrengine.controller to javafx.fxml, javafx.base;
+    opens com.l3.apipnrengine.api.model to javafx.fxml, javafx.base;
+    opens com.l3.apipnrengine.api.utils to javafx.fxml;
+    opens com.l3.apipnrengine.common.reporting to javafx.fxml;
+    opens com.l3.apipnrengine.pnr to javafx.fxml;
+    opens com.l3.apipnrengine.pnr.model to javafx.fxml, javafx.base;
+    opens com.l3.apipnrengine.pnr.utils to javafx.fxml;
 
     // Launcher module
     opens com.l3.launcher to javafx.fxml;
@@ -32,8 +32,8 @@ module com.l3.api {
     opens com.l3.logparser.api.parser to javafx.fxml;
 
     // Exports (updated to new structure)
-    exports com.l3.dqengine.controller;
-    exports com.l3.dqengine.api.model;
+    exports com.l3.apipnrengine.controller;
+    exports com.l3.apipnrengine.api.model;
     exports com.l3.launcher;
     exports com.l3.logparser; // Export logparser package for JavaFX access
 }
