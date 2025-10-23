@@ -158,7 +158,7 @@ public class MainController {
     private void onChooseFolder() {
         onClear();
         DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle("Select folder with input/output files");
+        chooser.setTitle("Select folder containing 'input' and 'output' subfolders");
         Stage stage = (Stage) chooseFolderBtn.getScene().getWindow();
         File dir = chooser.showDialog(stage);
         if (dir != null && dir.isDirectory()) {

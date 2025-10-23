@@ -30,34 +30,40 @@ public class FileParser {
 
     public ParseResult parseFolder(File folder) throws Exception {
 
-        // gather files
-        List<Path> txtFiles = Files.list(folder.toPath())
+        // Check for input and output subfolders
+        File inputFolder = new File(folder, "input");
+        File outputFolder = new File(folder, "output");
+
+        if (!inputFolder.exists() || !inputFolder.isDirectory()) {
+            throw new IOException("Input folder not found. Expected 'input' subfolder in: " + folder.getAbsolutePath());
+        }
+        if (!outputFolder.exists() || !outputFolder.isDirectory()) {
+            throw new IOException("Output folder not found. Expected 'output' subfolder in: " + folder.getAbsolutePath());
+        }
+
+        // Gather input files from input folder - accept any .txt files
+        List<Path> inputFiles = Files.list(inputFolder.toPath())
                 .filter(p -> p.toString().toLowerCase().endsWith(".txt"))
                 .collect(Collectors.toList());
 
-        List<Path> inputFiles = txtFiles.stream()
-                .filter(p -> p.getFileName().toString().toLowerCase().matches("^input[_0-9]*\\.txt$") ||
-                        p.getFileName().toString().toLowerCase().startsWith("input"))
-                .collect(Collectors.toList());
-
-        List<Path> outputFiles = txtFiles.stream()
-                .filter(p -> p.getFileName().toString().toLowerCase().matches("^output[_0-9]*\\.txt$") ||
-                        p.getFileName().toString().toLowerCase().startsWith("output"))
+        // Gather output files from output folder - accept any .txt files
+        List<Path> outputFiles = Files.list(outputFolder.toPath())
+                .filter(p -> p.toString().toLowerCase().endsWith(".txt"))
                 .collect(Collectors.toList());
 
         if (inputFiles.isEmpty()) {
-            throw new IOException("No input files found (expected at least 1 matching 'input*.txt').");
+            throw new IOException("No .txt files found in input folder: " + inputFolder.getAbsolutePath());
         }
-        if (outputFiles.size() == 0) {
-            throw new IOException("No output file found (expected exactly 1).");
+        if (outputFiles.isEmpty()) {
+            throw new IOException("No .txt files found in output folder: " + outputFolder.getAbsolutePath());
         }
         if (outputFiles.size() > 1) {
-            throw new IOException("Multiple output files found (expected exactly 1).");
+            throw new IOException("Multiple .txt files found in output folder (expected exactly 1): " + outputFolder.getAbsolutePath());
         }
 
         List<String> processedFiles = new ArrayList<>();
-        inputFiles.forEach(p -> processedFiles.add(p.getFileName().toString()));
-        outputFiles.forEach(p -> processedFiles.add(p.getFileName().toString()));
+        inputFiles.forEach(p -> processedFiles.add("input/" + p.getFileName().toString()));
+        outputFiles.forEach(p -> processedFiles.add("output/" + p.getFileName().toString()));
 
         Path outputFile = outputFiles.get(0);
 
