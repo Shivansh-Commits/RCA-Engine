@@ -12,6 +12,23 @@ import java.util.stream.Collectors;
 /**
  * Main PNRGOV Comparator - Java implementation of the PowerShell Compare-PNRGOV script
  * Provides comprehensive EDIFACT file comparison and analysis functionality
+ * 
+ * FOLDER STRUCTURE SUPPORT:
+ * 
+ * The comparator now supports two folder structures for PNR processing:
+ * 
+ * 1. NEW STRUCTURE (Recommended):
+ *    - Main folder containing two subdirectories:
+ *      ├── input/     (contains all input EDIFACT files)
+ *      └── output/    (contains all output EDIFACT files)
+ * 
+ * 2. LEGACY STRUCTURE:
+ *    - Main folder containing files with specific naming:
+ *      ├── [filename]_input.[ext]   (files containing 'input' in name)
+ *      └── [filename]_output.[ext]  (files containing 'output' in name)
+ * 
+ * The comparator automatically detects which structure is being used and processes accordingly.
+ * New structure is preferred for better organization and clearer separation of input/output data.
  */
 public class PnrgovComparator {
     
@@ -45,6 +62,8 @@ public class PnrgovComparator {
     
     /**
      * Find input and output files in the given folder
+     * Enhanced to support both old format (files with 'input'/'output' in names) 
+     * and new format (input/ and output/ subdirectories)
      */
     private FileDiscoveryResult findInputOutputFiles(File folder) throws Exception {
         logger.debug("Scanning folder for input and output files: " + folder.getAbsolutePath());
@@ -53,31 +72,75 @@ public class PnrgovComparator {
             throw new IllegalArgumentException("Folder not found: " + folder.getAbsolutePath());
         }
         
-        // Get all files in the folder
-        File[] allFiles = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".txt") || 
-                                                         name.toLowerCase().endsWith(".edifact") ||
-                                                         name.toLowerCase().endsWith(".edi"));
+        // Check for new folder structure first (input/ and output/ subdirectories)
+        File inputDir = new File(folder, "input");
+        File outputDir = new File(folder, "output");
         
-        if (allFiles == null || allFiles.length == 0) {
-            throw new Exception("No files found in folder: " + folder.getAbsolutePath());
+        List<File> inputFiles = new ArrayList<>();
+        List<File> outputFiles = new ArrayList<>();
+        
+        if (inputDir.exists() && inputDir.isDirectory() && outputDir.exists() && outputDir.isDirectory()) {
+            logger.info("Using new folder structure: input/ and output/ subdirectories");
+            
+            // Get all EDIFACT files from input directory
+            File[] inputDirFiles = inputDir.listFiles((dir, name) -> 
+                name.toLowerCase().endsWith(".txt") || 
+                name.toLowerCase().endsWith(".edifact") ||
+                name.toLowerCase().endsWith(".edi"));
+            
+            if (inputDirFiles != null && inputDirFiles.length > 0) {
+                inputFiles.addAll(Arrays.asList(inputDirFiles));
+                logger.info("Found " + inputFiles.size() + " files in input directory");
+            }
+            
+            // Get all EDIFACT files from output directory
+            File[] outputDirFiles = outputDir.listFiles((dir, name) -> 
+                name.toLowerCase().endsWith(".txt") || 
+                name.toLowerCase().endsWith(".edifact") ||
+                name.toLowerCase().endsWith(".edi"));
+            
+            if (outputDirFiles != null && outputDirFiles.length > 0) {
+                outputFiles.addAll(Arrays.asList(outputDirFiles));
+                logger.info("Found " + outputFiles.size() + " files in output directory");
+            }
+        } else {
+            logger.info("Using legacy folder structure: files with 'input'/'output' in names");
+            
+            // Fall back to old method: look for files with 'input'/'output' in their names
+            File[] allFiles = folder.listFiles((dir, name) -> 
+                name.toLowerCase().endsWith(".txt") || 
+                name.toLowerCase().endsWith(".edifact") ||
+                name.toLowerCase().endsWith(".edi"));
+            
+            if (allFiles == null || allFiles.length == 0) {
+                throw new Exception("No files found in folder: " + folder.getAbsolutePath());
+            }
+            
+            // Find input files (contains 'input' anywhere in filename, case-insensitive)
+            inputFiles = Arrays.stream(allFiles)
+                .filter(file -> file.getName().toLowerCase().contains("input"))
+                .collect(Collectors.toList());
+            
+            // Find output files (contains 'output' anywhere in filename, case-insensitive)
+            outputFiles = Arrays.stream(allFiles)
+                .filter(file -> file.getName().toLowerCase().contains("output"))
+                .collect(Collectors.toList());
         }
         
-        // Find input files (contains 'input' anywhere in filename, case-insensitive)
-        List<File> inputFiles = Arrays.stream(allFiles)
-            .filter(file -> file.getName().toLowerCase().contains("input"))
-            .collect(Collectors.toList());
-        
-        // Find output files (contains 'output' anywhere in filename, case-insensitive)
-        List<File> outputFiles = Arrays.stream(allFiles)
-            .filter(file -> file.getName().toLowerCase().contains("output"))
-            .collect(Collectors.toList());
-        
         if (inputFiles.isEmpty()) {
-            throw new Exception("No input files found! Please ensure files contain 'input' in their name");
+            if (inputDir.exists() && inputDir.isDirectory()) {
+                throw new Exception("No EDIFACT files found in input directory: " + inputDir.getAbsolutePath());
+            } else {
+                throw new Exception("No input files found! Please ensure files contain 'input' in their name or place files in 'input/' subdirectory");
+            }
         }
         
         if (outputFiles.isEmpty()) {
-            throw new Exception("No output files found! Please ensure files contain 'output' in their name");
+            if (outputDir.exists() && outputDir.isDirectory()) {
+                throw new Exception("No EDIFACT files found in output directory: " + outputDir.getAbsolutePath());
+            } else {
+                throw new Exception("No output files found! Please ensure files contain 'output' in their name or place files in 'output/' subdirectory");
+            }
         }
         
         // Analyze multipart structure

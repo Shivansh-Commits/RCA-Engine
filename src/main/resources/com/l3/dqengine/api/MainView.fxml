@@ -153,32 +153,32 @@
                   <children>
             
                                     <HBox alignment="CENTER" prefHeight="45.0" prefWidth="1278.0" spacing="10" styleClass="tool_bar_hbox" stylesheets="@MainView.css">
-                            <Label fx:id="totalInputPassengersLabel" prefHeight="17.0" prefWidth="160.0" text="Total Input Passengers" textFill="WHITE">
+                            <Label fx:id="totalInputPassengersLabel" alignment="CENTER" prefHeight="17.0" prefWidth="160.0" text="Total Input Passengers" textFill="WHITE">
                            <font>
                               <Font name="System Bold" size="12.0" />
                            </font>
                         </Label>
-                        <Label fx:id="totalUniqueInputPassengersLabel" prefWidth="200.0" text="Total Unique Input Passengers" textFill="WHITE">
+                        <Label fx:id="totalUniqueInputPassengersLabel" alignment="CENTER" prefWidth="200.0" text="Total Unique Input Passengers" textFill="WHITE">
                            <font>
                               <Font name="System Bold" size="12.0" />
                            </font>
                         </Label>
-                        <Label fx:id="totalOutputPassengersLabel" prefWidth="160.0" text="Total Output Passengers" textFill="WHITE">
+                        <Label fx:id="totalOutputPassengersLabel" alignment="CENTER" prefWidth="160.0" text="Total Output Passengers" textFill="WHITE">
                            <font>
                               <Font name="System Bold" size="12.0" />
                            </font>
                         </Label>
-                        <Label fx:id="droppedPassengersLabel" prefWidth="130.0" text="Dropped Passengers" textFill="WHITE">
+                        <Label fx:id="droppedPassengersLabel" alignment="CENTER" prefWidth="130.0" text="Dropped Passengers" textFill="WHITE">
                            <font>
                               <Font name="System Bold" size="12.0" />
                            </font>
                         </Label>
-                        <Label fx:id="duplicatePassengersLabel" prefWidth="140.0" text="Duplicate Passengers" textFill="WHITE">
+                        <Label fx:id="duplicatePassengersLabel" alignment="CENTER" prefWidth="140.0" text="Duplicate Passengers" textFill="WHITE">
                            <font>
                               <Font name="System Bold" size="12.0" />
                            </font>
                         </Label>
-                        <Label fx:id="newPnrsLabel" prefWidth="100.0" text="NEW PNRs" textFill="WHITE">
+                        <Label fx:id="newPnrsLabel" alignment="CENTER" prefWidth="100.0" text="NEW PNRs" textFill="WHITE">
                            <font>
                               <Font name="System Bold" size="12.0" />
                            </font>
