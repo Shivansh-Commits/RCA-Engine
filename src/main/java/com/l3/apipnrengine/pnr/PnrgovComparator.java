@@ -34,6 +34,7 @@ public class PnrgovComparator {
     
     private final PnrgovConfig config;
     private final PnrgovLogger logger;
+    private final List<String> segmentValidationWarnings = new ArrayList<>();
     
     public PnrgovComparator(PnrgovConfig config) {
         this.config = config;
@@ -421,6 +422,10 @@ public class PnrgovComparator {
         
         String[] segments = content.split(Pattern.quote(String.valueOf(separators.getSegment())));
         
+        // Validate SRC/RCI segments and collect warnings
+        List<String> srcRciWarnings = validateSrcRciSegments(segments, separators, file.getName(), segmentSourceMap);
+        this.segmentValidationWarnings.addAll(srcRciWarnings);
+        
         // Count TRI+ segments for DCS count
         int triCount = (int) Arrays.stream(segments)
             .filter(seg -> seg.trim().startsWith("TRI" + separators.getElement()))
@@ -525,6 +530,21 @@ public class PnrgovComparator {
     }
     
     /**
+     * Get the source file name for a specific segment index
+     */
+    private String getSegmentSourceFileName(int segmentIndex, Map<Integer, String> segmentSourceMap, String fallbackFileName) {
+        if (segmentSourceMap == null) {
+            return fallbackFileName;
+        }
+        
+        if (segmentSourceMap.containsKey(segmentIndex)) {
+            return segmentSourceMap.get(segmentIndex);
+        }
+        
+        return fallbackFileName;
+    }
+    
+    /**
      * Extract primary RLOC from RCI segments
      */
     private String extractPrimaryRloc(List<String> segments, EdifactSeparators separators, int blockIndex) {
@@ -584,6 +604,182 @@ public class PnrgovComparator {
         }
         
         return passengers;
+    }
+    
+    /**
+     * Validate SRC and RCI segments according to EDIFACT PNRGOV standards
+     * 
+     * SRC Segment Rules:
+     * - Mandatory segment indicating the start of a PNR record
+     * - Can appear multiple times (each new SRC starts a new PNR)
+     * - Must be present for valid PNR structure
+     * 
+     * RCI Segment Rules:
+     * - Mandatory segment that must appear after each SRC
+     * - Contains reservation control information
+     * - Company identification code: up to 3 characters alphanumeric
+     * - Reservation control number: up to 20 characters alphanumeric
+     */
+    private List<String> validateSrcRciSegments(String[] segments, EdifactSeparators separators, String fileName, Map<Integer, String> segmentSourceMap) {
+        List<String> warnings = new ArrayList<>();
+        
+        logger.debug("Starting SRC/RCI segment validation for file: " + fileName);
+        
+        List<String> srcPositions = new ArrayList<>();
+        List<String> rciPositions = new ArrayList<>();
+        
+        // First pass: collect all SRC and RCI segment positions
+        for (int i = 0; i < segments.length; i++) {
+            String segment = segments[i].trim();
+            
+            if (segment.equals("SRC")) {
+                srcPositions.add("Position " + (i + 1));
+                logger.debug("Found SRC segment at position " + (i + 1));
+            } else if (segment.startsWith("RCI" + separators.getElement())) {
+                rciPositions.add("Position " + (i + 1));
+                logger.debug("Found RCI segment at position " + (i + 1));
+                
+                // Determine actual source file for this segment
+                String actualFileName = getSegmentSourceFileName(i, segmentSourceMap, fileName);
+                
+                // Validate RCI segment structure
+                validateRciSegmentStructure(segment, separators, i + 1, warnings, actualFileName);
+            }
+        }
+        
+        // Validate SRC segment requirements
+        if (srcPositions.isEmpty()) {
+            warnings.add("⚠️ CRITICAL: No SRC segments found in " + fileName + " - SRC is mandatory to indicate PNR record start");
+        } else {
+            logger.info("Found " + srcPositions.size() + " SRC segment(s) in " + fileName + ": " + String.join(", ", srcPositions));
+        }
+        
+        // Validate RCI segment requirements
+        if (rciPositions.isEmpty()) {
+            warnings.add("⚠️ CRITICAL: No RCI segments found in " + fileName + " - RCI is mandatory after each SRC");
+        } else {
+            logger.info("Found " + rciPositions.size() + " RCI segment(s) in " + fileName + ": " + String.join(", ", rciPositions));
+        }
+        
+        // Validate SRC/RCI pairing - each SRC should be followed by an RCI
+        if (!srcPositions.isEmpty() && !rciPositions.isEmpty()) {
+            validateSrcRciPairing(segments, separators, warnings, fileName, segmentSourceMap);
+        }
+        
+        if (warnings.isEmpty()) {
+            logger.info("✅ SRC/RCI segment validation passed for " + fileName);
+        } else {
+            logger.warn("⚠️ SRC/RCI segment validation found " + warnings.size() + " issue(s) in " + fileName);
+            for (String warning : warnings) {
+                logger.warn("  - " + warning);
+            }
+        }
+        
+        return warnings;
+    }
+    
+    /**
+     * Validate individual RCI segment structure and content
+     */
+    private void validateRciSegmentStructure(String rciSegment, EdifactSeparators separators, 
+                                           int position, List<String> warnings, String fileName) {
+        try {
+            // Parse RCI segment: RCI+element1:subelement1:subelement2+element2...
+            String payload = rciSegment.substring(3); // Remove "RCI" prefix
+            String[] elements = payload.split(Pattern.quote(String.valueOf(separators.getElement())));
+            
+            if (elements.length < 2) {
+                warnings.add("⚠️ RCI segment at position " + position + " in " + fileName + 
+                           " has insufficient elements (expected at least 2)");
+                return;
+            }
+            
+            // Find the first non-empty element that contains company identification
+            String firstElement = null;
+            for (String element : elements) {
+                if (element != null && !element.trim().isEmpty()) {
+                    firstElement = element;
+                    break;
+                }
+            }
+            
+            if (firstElement != null) {
+                // Company identification should be 3 characters alphanumeric
+                String[] subElements = firstElement.split(Pattern.quote(String.valueOf(separators.getSubElement())));
+                
+                if (subElements.length > 0) {
+                    String companyId = subElements[0];
+                    
+                    if (companyId.length() == 0 || companyId.length() > 3) {
+                        warnings.add("⚠️ RCI segment at position " + position + " in " + fileName + 
+                                   " has invalid company ID length (" + companyId.length() + 
+                                   " chars, expected 1-3): '" + companyId + "'");
+                    } else if (!companyId.matches("[A-Za-z0-9]+")) {
+                        warnings.add("⚠️ RCI segment at position " + position + " in " + fileName + 
+                                   " has invalid company ID format (expected alphanumeric): '" + companyId + "'");
+                    }
+                }
+            }
+            
+            // Second element contains reservation control number
+            String secondElement = elements[1];
+            String[] subElements = secondElement.split(Pattern.quote(String.valueOf(separators.getSubElement())));
+            if (subElements.length > 1) {
+                String reservationNumber = subElements[1];
+                if (reservationNumber.length() > 20) {
+                    warnings.add("⚠️ RCI segment at position " + position + " in " + fileName + 
+                               " has reservation control number too long (" + reservationNumber.length() + 
+                               " chars, max 20): '" + reservationNumber + "'");
+                } else if (!reservationNumber.matches("[A-Za-z0-9]*")) {
+                    warnings.add("⚠️ RCI segment at position " + position + " in " + fileName + 
+                               " has invalid reservation control number format (expected alphanumeric): '" + 
+                               reservationNumber + "'");
+                }
+            } else {
+                warnings.add("⚠️ RCI segment at position " + position + " in " + fileName + 
+                           " is missing reservation control number");
+            }
+            
+        } catch (Exception e) {
+            warnings.add("⚠️ Error parsing RCI segment at position " + position + " in " + fileName + 
+                       ": " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Validate that each SRC segment is properly followed by an RCI segment
+     */
+    private void validateSrcRciPairing(String[] segments, EdifactSeparators separators, 
+                                     List<String> warnings, String fileName, Map<Integer, String> segmentSourceMap) {
+        for (int i = 0; i < segments.length; i++) {
+            String segment = segments[i].trim();
+            
+            if (segment.equals("SRC")) {
+                boolean foundRci = false;
+                
+                // Look for RCI in subsequent segments (within reasonable distance)
+                for (int j = i + 1; j < Math.min(segments.length, i + 10); j++) {
+                    String nextSegment = segments[j].trim();
+                    
+                    if (nextSegment.startsWith("RCI" + separators.getElement())) {
+                        foundRci = true;
+                        break;
+                    }
+                    
+                    // If we hit another SRC, stop looking
+                    if (nextSegment.equals("SRC")) {
+                        break;
+                    }
+                }
+                
+                if (!foundRci) {
+                    String actualFileName = getSegmentSourceFileName(i, segmentSourceMap, fileName);
+//                    warnings.add("⚠️ SRC segment at position " + (i + 1) + " in " + actualFileName +
+//                               " is not followed by a corresponding RCI segment");
+                    warnings.add("⚠\uFE0F Missing Mandatory RCI segment after SRC at position " + (i + 1));
+                }
+            }
+        }
     }
     
     /**
@@ -750,5 +946,12 @@ public class PnrgovComparator {
     private String cleanString(String input) {
         if (input == null) return "";
         return input.replaceAll("\\s", "").replaceAll("\\W", "").toUpperCase();
+    }
+    
+    /**
+     * Get validation warnings collected during processing
+     */
+    public List<String> getSegmentValidationWarnings() {
+        return new ArrayList<>(segmentValidationWarnings);
     }
 }

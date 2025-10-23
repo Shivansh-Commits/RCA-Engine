@@ -37,6 +37,9 @@ public class PnrgovProcessor {
         PnrgovComparator comparator = new PnrgovComparator(config);
         ComparisonResult result = comparator.compare(folder);
         
+        // Collect validation warnings from comparator
+        List<String> validationWarnings = comparator.getSegmentValidationWarnings();
+        
         // Debug logging
 //        logger.info("=== COMPARISON RESULTS DEBUG ===");
 //        logger.info("Total Input Passengers: " + result.getTotalInputPassengers());
@@ -53,13 +56,13 @@ public class PnrgovProcessor {
 //        logger.info("===============================");
         
         // Convert to UI-compatible format
-        return convertToUiResult(result);
+        return convertToUiResult(result, validationWarnings);
     }
     
     /**
      * Convert comparison result to UI-compatible format
      */
-    private PnrgovResult convertToUiResult(ComparisonResult result) {
+    private PnrgovResult convertToUiResult(ComparisonResult result, List<String> validationWarnings) {
         PnrgovResult uiResult = new PnrgovResult();
         
         // Set flight information
@@ -231,17 +234,20 @@ public class PnrgovProcessor {
         
         // Set warnings/messages
         List<String> messages = new ArrayList<>();
-        if (result.getFlightComparison().isMatch()) {
-            messages.add("✅ Flight details match between input and output");
-        } else if (!result.getFlightComparison().getDifferences().isEmpty()) {
+         if (!result.getFlightComparison().getDifferences().isEmpty()) {
             messages.add("⚠️ Flight details mismatch:");
             messages.addAll(result.getFlightComparison().getDifferences());
         }
         
         // Add summary message
-        messages.add("📊 Processing completed: " + result.getStatusSummary());
-        messages.add("🔧 Strategy: " + result.getConfig().getMatchingStrategy());
-        messages.add("⏱️ Processing time: " + result.getProcessingTimeMs() + "ms");
+
+        
+        // Add SRC/RCI segment validation warnings
+        if (validationWarnings != null && !validationWarnings.isEmpty()) {
+            messages.add("");
+           // messages.add("🔍 EDIFACT Segment Validation:");
+            messages.addAll(validationWarnings);
+        }
         
         uiResult.setAllInvalidNads(new ArrayList<>());
         uiResult.setAllInvalidDocs(new ArrayList<>());

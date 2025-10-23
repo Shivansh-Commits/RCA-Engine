@@ -10,7 +10,7 @@
     <VBox fx:id="splashContent" styleClass="splash-container">
         <ImageView fx:id="logoImageView" fitHeight="120" fitWidth="120" pickOnBounds="true" preserveRatio="true" styleClass="splash-logo" />
 
-        <Label styleClass="splash-title" text="API/PNR Data Quality Engine" />
+        <Label styleClass="splash-title" text="API/PNR Engine" />
         <Label alignment="CENTER" styleClass="splash-subtitle" text="Initializing..." />
 
         <ProgressBar fx:id="progressBar" prefWidth="400" progress="0" styleClass="splash-progress" />
