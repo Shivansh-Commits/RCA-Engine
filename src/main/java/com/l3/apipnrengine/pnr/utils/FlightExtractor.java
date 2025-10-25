@@ -39,8 +39,8 @@ public class FlightExtractor {
         
         // Find the first TVL segment using dynamic separators
         String tvlPattern = "TVL" + Pattern.quote(String.valueOf(separators.getElement())) + 
-                           "[^" + Pattern.quote(String.valueOf(separators.getSegment())) + "]*" + 
-                           Pattern.quote(String.valueOf(separators.getSegment()));
+                           "[^" + Pattern.quote(String.valueOf(separators.getTerminator())) + "]*" + 
+                           Pattern.quote(String.valueOf(separators.getTerminator()));
         
         Pattern pattern = Pattern.compile(tvlPattern);
         Matcher matcher = pattern.matcher(content);
@@ -50,7 +50,7 @@ public class FlightExtractor {
         }
         
         // Get the first TVL segment (remove trailing segment terminator)
-        String firstTvl = matcher.group().replaceAll(Pattern.quote(String.valueOf(separators.getSegment())) + "$", "");
+        String firstTvl = matcher.group().replaceAll(Pattern.quote(String.valueOf(separators.getTerminator())) + "$", "");
         
         // Parse TVL segment using dynamic separators
         EdifactParser.TvlData tvlData = EdifactParser.parseTvl(firstTvl, separators);

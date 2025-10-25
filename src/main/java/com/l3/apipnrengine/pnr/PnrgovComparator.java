@@ -51,7 +51,7 @@ public class PnrgovComparator {
         FileDiscoveryResult discovery = findInputOutputFiles(folder);
         
         // Validate files
-        validateFiles(discovery.getInputFile(), discovery.getOutputFile());
+        validateFiles(discovery.getInputFile(), discovery.getOutputFile(), discovery);
         
         // Extract PNR and passenger data
         PnrData inputData = extractPnrAndPassengers(discovery.getInputFile(), discovery.getInputSegmentSourceMap());
@@ -185,11 +185,13 @@ public class PnrgovComparator {
         for (File file : files) {
             try {
                 String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
-                // Parse separators for potential validation (not currently used)
-                EdifactSeparators.parse(content);
+                // Parse separators for dynamic pattern creation
+                EdifactSeparators separators = EdifactSeparators.parse(content);
                 
-                // Look for UNH segment pattern
-                Pattern unhPattern = Pattern.compile("UNH\\+([^\\+]+)\\+PNRGOV:[^\\+]+\\+([^\\+]+)\\+(\\d+)(?::(C|F))?");
+                // Look for UNH segment pattern using dynamic separators
+                String elementSep = Pattern.quote(String.valueOf(separators.getElement()));
+                String subElementSep = Pattern.quote(String.valueOf(separators.getSubElement()));
+                Pattern unhPattern = Pattern.compile("UNH" + elementSep + "([^" + elementSep + "]+)" + elementSep + "PNRGOV:[^" + elementSep + "]+" + elementSep + "([^" + elementSep + "]+)" + elementSep + "(\\d+)(?:" + subElementSep + "(C|F))?");
                 Matcher matcher = unhPattern.matcher(content);
                 
                 if (matcher.find()) {
@@ -251,6 +253,17 @@ public class PnrgovComparator {
         boolean isFirstFile = true;
         int segmentIndex = 0;
         
+        // Parse separators from the first file to use for dynamic patterns
+        EdifactSeparators separators = null;
+        if (!group.getParts().isEmpty()) {
+            File firstFile = group.getParts().values().iterator().next();
+            String firstContent = new String(Files.readAllBytes(firstFile.toPath()), StandardCharsets.UTF_8);
+            separators = EdifactSeparators.parse(firstContent);
+        }
+        if (separators == null) {
+            separators = EdifactSeparators.getDefault();
+        }
+        
         // Sort parts by part number
         List<Integer> partNumbers = new ArrayList<>(group.getParts().keySet());
         Collections.sort(partNumbers);
@@ -266,11 +279,18 @@ public class PnrgovComparator {
                 continue;
             }
             
-            // Split into segments
-            String[] segments = content.split("'");
+            // Split into segments using dynamic terminator
+            String[] segments = content.split(Pattern.quote(String.valueOf(separators.getTerminator())));
             
             for (String segment : segments) {
-                String cleanSegment = segment.trim();
+                // Special handling for UNA segment - do NOT trim as it contains significant whitespace
+                String cleanSegment;
+                if (segment.startsWith("UNA")) {
+                    cleanSegment = segment; // Preserve UNA exactly as is
+                } else {
+                    cleanSegment = segment.trim(); // Normal trimming for other segments
+                }
+                
                 if (cleanSegment.isEmpty()) continue;
                 
                 if (isFirstFile) {
@@ -280,16 +300,18 @@ public class PnrgovComparator {
                     segmentIndex++;
                     
                     // Extract control references
-                    if (cleanSegment.startsWith("UNH+")) {
-                        Pattern pattern = Pattern.compile("UNH\\+([^\\+]+)\\+");
+                    if (cleanSegment.startsWith("UNH" + separators.getElement())) {
+                        String elementSep = Pattern.quote(String.valueOf(separators.getElement()));
+                        Pattern pattern = Pattern.compile("UNH" + elementSep + "([^" + elementSep + "]+)" + elementSep);
                         Matcher matcher = pattern.matcher(cleanSegment);
                         if (matcher.find()) {
                             messageRef = matcher.group(1);
                         }
                     }
                     
-                    if (cleanSegment.startsWith("UNB+")) {
-                        Pattern pattern = Pattern.compile("UNB\\+[^\\+]+\\+[^\\+]+\\+[^\\+]+\\+[^\\+]+\\+([^\\+]+)");
+                    if (cleanSegment.startsWith("UNB" + separators.getElement())) {
+                        String elementSep = Pattern.quote(String.valueOf(separators.getElement()));
+                        Pattern pattern = Pattern.compile("UNB" + elementSep + "[^" + elementSep + "]+" + elementSep + "[^" + elementSep + "]+" + elementSep + "[^" + elementSep + "]+" + elementSep + "[^" + elementSep + "]+" + elementSep + "([^" + elementSep + "]+)");
                         Matcher matcher = pattern.matcher(cleanSegment);
                         if (matcher.find()) {
                             interchangeControlRef = matcher.group(1);
@@ -297,11 +319,12 @@ public class PnrgovComparator {
                     }
                 } else {
                     // Skip duplicate headers/footers for subsequent files
+                    String elementSep = String.valueOf(separators.getElement());
                     if (!cleanSegment.startsWith("UNA") &&
-                        !cleanSegment.startsWith("UNB+") &&
-                        !cleanSegment.startsWith("UNH+") &&
-                        !cleanSegment.startsWith("UNT+") &&
-                        !cleanSegment.startsWith("UNZ+")) {
+                        !cleanSegment.startsWith("UNB" + elementSep) &&
+                        !cleanSegment.startsWith("UNH" + elementSep) &&
+                        !cleanSegment.startsWith("UNT" + elementSep) &&
+                        !cleanSegment.startsWith("UNZ" + elementSep)) {
                         
                         mergedContent.add(cleanSegment);
                         segmentSourceMap.put(segmentIndex, fileName);
@@ -315,23 +338,27 @@ public class PnrgovComparator {
         
         // Add closing segments
         if (messageRef != null) {
+            String elementSep = String.valueOf(separators.getElement());
             int segmentCount = mergedContent.size() - 
-                (int) mergedContent.stream().filter(s -> s.startsWith("UNA") || s.startsWith("UNB+") || 
-                                                        s.startsWith("UNH+") || s.startsWith("UNT+") || 
-                                                        s.startsWith("UNZ+")).count() + 2;
-            mergedContent.add("UNT+" + segmentCount + "+" + messageRef);
+                (int) mergedContent.stream().filter(s -> s.startsWith("UNA") || s.startsWith("UNB" + elementSep) || 
+                                                        s.startsWith("UNH" + elementSep) || s.startsWith("UNT" + elementSep) || 
+                                                        s.startsWith("UNZ" + elementSep)).count() + 2;
+            mergedContent.add("UNT" + elementSep + segmentCount + elementSep + messageRef);
             segmentSourceMap.put(segmentIndex++, "SYSTEM");
         }
         
         if (interchangeControlRef != null) {
-            mergedContent.add("UNZ+1+" + interchangeControlRef);
+            String elementSep = String.valueOf(separators.getElement());
+            mergedContent.add("UNZ" + elementSep + "1" + elementSep + interchangeControlRef);
         } else {
-            mergedContent.add("UNZ+1+1");
+            String elementSep = String.valueOf(separators.getElement());
+            mergedContent.add("UNZ" + elementSep + "1" + elementSep + "1");
         }
         segmentSourceMap.put(segmentIndex, "SYSTEM");
         
-        // Create merged file
-        String mergedText = String.join("'", mergedContent) + "'";
+        // Create merged file using dynamic terminator
+        String dynamicTerminator = String.valueOf(separators.getTerminator());
+        String mergedText = String.join(dynamicTerminator, mergedContent) + dynamicTerminator;
         File tempFile = File.createTempFile("merged_pnrgov_", ".edi");
         Files.write(tempFile.toPath(), mergedText.getBytes(StandardCharsets.UTF_8));
         
@@ -343,26 +370,56 @@ public class PnrgovComparator {
     /**
      * Validate EDIFACT files
      */
-    private void validateFiles(File inputFile, File outputFile) throws Exception {
+    private void validateFiles(File inputFile, File outputFile, FileDiscoveryResult discovery) throws Exception {
         logger.info("Validating input and output files");
         
+        // Get original file names for better error reporting
+        String inputFileName = getOriginalFileName(inputFile, discovery, "input");
+        String outputFileName = getOriginalFileName(outputFile, discovery, "output");
+        
         // Validate input file
-        validateEdifactFile(inputFile, "input");
+        validateEdifactFile(inputFile, "input", inputFileName);
         
         // Validate output file
-        validateEdifactFile(outputFile, "output");
+        validateEdifactFile(outputFile, "output", outputFileName);
         
         logger.info("File validation completed successfully");
     }
     
     /**
+     * Get original file name for better error reporting
+     */
+    private String getOriginalFileName(File file, FileDiscoveryResult discovery, String fileType) {
+        // If the file is a merged temp file, try to get meaningful source info
+        if (file.getName().startsWith("merged_pnrgov_")) {
+            Map<Integer, String> segmentSourceMap = discovery.getInputSegmentSourceMap();
+            if (segmentSourceMap != null && !segmentSourceMap.isEmpty()) {
+                // Get the most common source file name from the segment map
+                return segmentSourceMap.values().stream()
+                    .filter(source -> !source.equals("SYSTEM"))
+                    .findFirst()
+                    .orElse("multiple input files");
+            }
+            return "merged " + fileType + " files";
+        }
+        // Return actual file name for non-merged files
+        return file.getName();
+    }
+    
+    /**
      * Validate a single EDIFACT file
      */
-    private void validateEdifactFile(File file, String fileType) throws Exception {
+    private void validateEdifactFile(File file, String fileType, String originalFileName) throws Exception {
         //logger.debug("Validating " + fileType + " file: " + file.getName());
         
         String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
-        String[] segments = content.split("'");
+        
+        // Parse separators for dynamic patterns
+        EdifactSeparators separators = EdifactSeparators.parse(content);
+        String elementSep = Pattern.quote(String.valueOf(separators.getElement()));
+        String terminator = String.valueOf(separators.getTerminator());
+        
+        String[] segments = content.split(Pattern.quote(terminator));
         
         // Find UNB and UNZ segments
         String unb = null;
@@ -370,25 +427,25 @@ public class PnrgovComparator {
         
         for (String segment : segments) {
             String trimmed = segment.trim();
-            if (trimmed.startsWith("UNB+") && unb == null) {
+            if (trimmed.startsWith("UNB" + separators.getElement()) && unb == null) {
                 unb = trimmed;
             }
-            if (trimmed.startsWith("UNZ+")) {
+            if (trimmed.startsWith("UNZ" + separators.getElement())) {
                 unz = trimmed;
             }
         }
         
         if (unb == null) {
-            throw new Exception("UNB segment missing in " + fileType + " file: " + file.getName());
+            throw new Exception("UNB segment missing in " + fileType + " file: " + originalFileName);
         }
         
         if (unz == null) {
-            throw new Exception("UNZ segment missing in " + fileType + " file: " + file.getName());
+            throw new Exception("UNZ segment missing in " + fileType + " file: " + originalFileName);
         }
         
-        // Validate UNB/UNZ ICR match
-        Pattern unbPattern = Pattern.compile("UNB\\+[^\\+]*\\+[^\\+]*\\+[^\\+]*\\+[^\\+]*\\+([^\\+]+)");
-        Pattern unzPattern = Pattern.compile("UNZ\\+\\d+\\+(\\d+)");
+        // Validate UNB/UNZ ICR match using dynamic separators
+        Pattern unbPattern = Pattern.compile("UNB" + elementSep + "[^" + elementSep + "]*" + elementSep + "[^" + elementSep + "]*" + elementSep + "[^" + elementSep + "]*" + elementSep + "[^" + elementSep + "]*" + elementSep + "([^" + elementSep + "]+)");
+        Pattern unzPattern = Pattern.compile("UNZ" + elementSep + "\\d+" + elementSep + "(\\d+)");
         
         Matcher unbMatcher = unbPattern.matcher(unb);
         Matcher unzMatcher = unzPattern.matcher(unz);
@@ -418,9 +475,9 @@ public class PnrgovComparator {
         String content = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
         EdifactSeparators separators = EdifactSeparators.parse(content);
         
-        logger.debug("Using separators - Element: '" + separators.getElement() +"', SubElement: '" + separators.getSubElement() +"', Segment: '" + separators.getSegment() + "'");
+        logger.debug("Using separators - Element: '" + separators.getElement() +"', SubElement: '" + separators.getSubElement() +"', Terminator: '" + separators.getTerminator() + "'");
         
-        String[] segments = content.split(Pattern.quote(String.valueOf(separators.getSegment())));
+        String[] segments = content.split(Pattern.quote(String.valueOf(separators.getTerminator())));
         
         // Validate SRC/RCI segments and collect warnings
         List<String> srcRciWarnings = validateSrcRciSegments(segments, separators, file.getName(), segmentSourceMap);
@@ -773,9 +830,9 @@ public class PnrgovComparator {
                 }
                 
                 if (!foundRci) {
-                    String actualFileName = getSegmentSourceFileName(i, segmentSourceMap, fileName);
-//                    warnings.add("⚠️ SRC segment at position " + (i + 1) + " in " + actualFileName +
-//                               " is not followed by a corresponding RCI segment");
+                    // String actualFileName = getSegmentSourceFileName(i, segmentSourceMap, fileName);
+                    // warnings.add("⚠️ SRC segment at position " + (i + 1) + " in " + actualFileName +
+                    //            " is not followed by a corresponding RCI segment");
                     warnings.add("⚠\uFE0F Missing Mandatory RCI segment after SRC at position " + (i + 1));
                 }
             }
