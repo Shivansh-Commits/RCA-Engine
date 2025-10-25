@@ -56,13 +56,13 @@ public class PnrgovProcessor {
 //        logger.info("===============================");
         
         // Convert to UI-compatible format
-        return convertToUiResult(result, validationWarnings);
+        return convertToUiResult(result, validationWarnings, comparator.getLastFileDiscoveryResult());
     }
     
     /**
      * Convert comparison result to UI-compatible format
      */
-    private PnrgovResult convertToUiResult(ComparisonResult result, List<String> validationWarnings) {
+    private PnrgovResult convertToUiResult(ComparisonResult result, List<String> validationWarnings, FileDiscoveryResult discovery) {
         PnrgovResult uiResult = new PnrgovResult();
         
         // Set flight information
@@ -157,19 +157,11 @@ public class PnrgovProcessor {
             .collect(java.util.stream.Collectors.toSet());
         logger.info("Unique dropped PNRs: " + uniqueDroppedPnrs.size() + " - " + uniqueDroppedPnrs);
         
-        // Calculate NEW PNRs: PNRs that exist in output but not in input
-        Set<String> inputPnrRlocs = result.getInputData().getPnrRecords().stream()
-            .map(pnr -> pnr.getRloc())
-            .collect(java.util.stream.Collectors.toSet());
+        // Calculate NEW PNRs: Use the already calculated added PNR keys from comparison result
+        // This represents PNRs that were truly added during processing, not just RLOC differences
+        Set<String> newPnrRlocs = result.getAddedPnrKeys();
         
-        Set<String> outputPnrRlocs = result.getOutputData().getPnrRecords().stream()
-            .map(pnr -> pnr.getRloc())
-            .collect(java.util.stream.Collectors.toSet());
-        
-        Set<String> newPnrRlocs = new HashSet<>(outputPnrRlocs);
-        newPnrRlocs.removeAll(inputPnrRlocs);
-        
-        logger.info("NEW PNRs (in output but not in input): " + newPnrRlocs.size() + " - " + newPnrRlocs);
+        logger.info("NEW PNRs (actually added during processing): " + newPnrRlocs.size() + " - " + newPnrRlocs);
         
         // Convert duplicate passengers - passengers that appear multiple times in input data
         List<PnrgovTableRow> duplicateRows = new ArrayList<>();
@@ -210,25 +202,41 @@ public class PnrgovProcessor {
 
 
 
-        // Set processed files (simplified)
+        // Set processed files with enhanced tracking
         List<String> processedFiles = new ArrayList<>();
-        // Extract all unique source files from passenger records
-        Set<String> uniqueInputFiles = new HashSet<>();
-        for (PassengerRecord passenger : result.getInputData().getPassengers()) {
-            if (passenger.getSource() != null && !passenger.getSource().isEmpty()) {
-                uniqueInputFiles.add(passenger.getSource());
-            }
-        }
-
-        // Add all individual input files
-        if (!uniqueInputFiles.isEmpty()) {
-            for (String inputFile : uniqueInputFiles) {
-                processedFiles.add("Input: " + inputFile);
+        
+        // Use original input files from discovery result first
+        if (discovery != null && !discovery.getOriginalInputFiles().isEmpty()) {
+            for (String originalFile : discovery.getOriginalInputFiles()) {
+                processedFiles.add("Input: " + originalFile);
             }
         } else {
-            // Fallback to merged file if no individual sources found
-            processedFiles.add("Input: " + new File(result.getInputData().getFilePath()).getName());
+            // Fallback: Extract all unique source files from passenger records
+            Set<String> uniqueInputFiles = new HashSet<>();
+            for (PassengerRecord passenger : result.getInputData().getPassengers()) {
+                if (passenger.getSource() != null && !passenger.getSource().isEmpty()) {
+                    uniqueInputFiles.add(passenger.getSource());
+                }
+            }
+
+            // Add all individual input files
+            if (!uniqueInputFiles.isEmpty()) {
+                for (String inputFile : uniqueInputFiles) {
+                    processedFiles.add("Input: " + inputFile);
+                }
+            } else {
+                // If no source tracking found, try to get info from the input file path
+                String inputPath = result.getInputData().getFilePath();
+                File inputFile = new File(inputPath);
+                if (inputFile.getName().startsWith("merged_pnrgov_")) {
+                    // This is a merged file - try to extract source info from the name or add a generic message
+                    processedFiles.add("Input: Multiple files merged (" + inputFile.getName() + ")");
+                } else {
+                    processedFiles.add("Input: " + inputFile.getName());
+                }
+            }
         }
+        
         processedFiles.add("Output: " + new File(result.getOutputData().getFilePath()).getName());
         uiResult.setProcessedFiles(processedFiles);
         

@@ -56,14 +56,18 @@ public class EdifactParser {
         int givenIndex = surnameIndex + 1;
         
         if (elements.length > surnameIndex) {
-            // Surname element
+            // Surname element - may contain both surname and given name separated by subElement separator
             String[] surnameComponents = splitEdifactElement(elements[surnameIndex], separators, "SubElement");
             if (surnameComponents.length > 0) {
                 surname = surnameComponents[0];
             }
+            if (surnameComponents.length > 1) {
+                given = surnameComponents[1];
+            }
         }
         
-        if (elements.length > givenIndex) {
+        // If given name wasn't found in surname element, try next element
+        if (given.isEmpty() && elements.length > givenIndex) {
             // Given name element (may contain additional info after component separator)
             String[] givenComponents = splitEdifactElement(elements[givenIndex], separators, "SubElement");
             if (givenComponents.length > 0) {
