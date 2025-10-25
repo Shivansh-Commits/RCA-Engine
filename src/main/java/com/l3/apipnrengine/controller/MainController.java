@@ -413,7 +413,7 @@ public class MainController {
         );
 
         // Set default filename with timestamp
-        String defaultName = "Data_Quality_Report_" +
+        String defaultName = "Traveller_Report_" +
             new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".xlsx";
         fileChooser.setInitialFileName(defaultName);
 
@@ -541,7 +541,7 @@ public class MainController {
         totalUniqueInputPassengersLabel.setText("Total Unique PNRs");
         totalOutputPassengersLabel.setText("Total Output PNRs");
         droppedPassengersLabel.setText("Dropped PNRs");
-        duplicatePassengersLabel.setText("Duplicate PNRs");
+        duplicatePassengersLabel.setText("Duplicate PAX");
         newPnrsLabel.setText("New PNRs");
         
         // Show NEW PNRs section for PNR mode

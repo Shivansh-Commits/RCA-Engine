@@ -29,7 +29,7 @@ public class ReportExporter {
 
         try (FileWriter writer = new FileWriter(filePath)) {
             // Write header
-            writer.write("API/PNR Data Quality Engine - Report Summary\n");
+            writer.write("Traveller - Report Summary\n");
             writer.write("Generated on: " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()) + "\n\n");
 
             // Flight Information

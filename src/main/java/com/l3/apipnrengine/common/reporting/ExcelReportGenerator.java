@@ -86,7 +86,7 @@ public class ExcelReportGenerator {
         // Title
         Row titleRow = sheet.createRow(0);
         Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("API/PNR Data Quality Engine - Report Summary");
+        titleCell.setCellValue("Traveller - Report Summary");
         titleCell.setCellStyle(headerStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 3));
 
