@@ -45,8 +45,12 @@ public class PnrEdifactParser {
             return messages;
         }
         
-        // More flexible log entry splitting to handle various log formats
-        String[] logEntries = logContent.split("(?=\\d{4}-\\d{2}-\\d{2}|INFO\\s|DEBUG\\s|WARN\\s|ERROR\\s)");
+        // Split on actual log entry boundaries, not on dates within EDIFACT content
+        // Look for patterns that indicate the start of a new log entry:
+        // - Log level followed by timestamp: INFO [2025-10-15T...
+        // - Standalone timestamp at start: 2025-10-15T06:50:51,113
+        // - Log levels at start: INFO, DEBUG, WARN, ERROR (but not embedded in content)
+        String[] logEntries = logContent.split("(?m)(?=^(?:INFO|DEBUG|WARN|ERROR)\\s+\\[|^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})");
         
         for (String logEntry : logEntries) {
             if (containsPnrMessage(logEntry)) {
