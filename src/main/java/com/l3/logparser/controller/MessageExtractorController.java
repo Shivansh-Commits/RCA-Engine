@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.function.Consumer;
 
 /**
  * Controller for the Message Extractor UI
@@ -44,6 +45,7 @@ public class MessageExtractorController implements Initializable {
     @FXML private Button saveButton;
     @FXML private TextField outputDirectoryField;
     @FXML private Button browseOutputButton;
+    @FXML private ToggleButton debugToggleButton;
 
     // Results area
     @FXML private TableView<MessageTableRow> resultsTable;
@@ -64,6 +66,7 @@ public class MessageExtractorController implements Initializable {
     private MessageExtractionService messageExtractionService;
     private PnrExtractionService pnrExtractionService;
     private MessageExtractionService.ExtractionResult lastResult;
+    private boolean debugMode = false;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -73,6 +76,18 @@ public class MessageExtractorController implements Initializable {
         setupTableSelection();
         setupUI();
         setupDataTypeComboBox();
+    }
+
+    @FXML
+    private void onDebugToggle() {
+        debugMode = debugToggleButton.isSelected();
+        if (debugMode) {
+            debugToggleButton.setText("ON");
+            addLogMessage("Debug mode enabled.");
+        } else {
+            debugToggleButton.setText("OFF");
+            addLogMessage("Debug mode disabled.");
+        }
     }
 
     private void setupTableColumns() {
@@ -100,7 +115,7 @@ public class MessageExtractorController implements Initializable {
     /**
      * Formats EDIFACT message content by placing each segment on a separate line.
      * Replaces segment terminator characters (') with line breaks for better readability.
-     * 
+     *
      * @param rawContent The raw EDIFACT message content
      * @return Formatted message with segments on separate lines
      */
@@ -108,7 +123,7 @@ public class MessageExtractorController implements Initializable {
         if (rawContent == null || rawContent.trim().isEmpty()) {
             return rawContent;
         }
-        
+
         // Replace EDIFACT segment terminators (') with line breaks
         // The segment terminator is typically the last character in each segment
         return rawContent.replace("'", "'\n");
@@ -189,30 +204,31 @@ public class MessageExtractorController implements Initializable {
                     // Use PNR service for proper filtering and analysis
                     PnrExtractionService.PnrExtractionResult pnrResult = pnrExtractionService.extractPnrMessages(
                         logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport);
-                    
+
                     // Convert PNR result to generic result format
-                    MessageExtractionService.ExtractionResult genericResult = 
+                    MessageExtractionService.ExtractionResult genericResult =
                         new MessageExtractionService.ExtractionResult();
                     genericResult.setRequestedDataType(selectedDataType);
                     genericResult.setSuccess(pnrResult.isSuccess());
-                    
+
                     // Set flight number and log directory from PNR result
                     genericResult.setFlightNumber(pnrResult.getFlightNumber());
                     genericResult.setLogDirectoryPath(pnrResult.getLogDirectoryPath());
-                    
+
                     // Convert PNR messages to generic EDIFACT messages
                     List<EdifactMessage> edifactMessages = convertPnrToEdifactMessages(pnrResult.getExtractedMessages());
                     genericResult.setExtractedMessages(edifactMessages);
-                    
+
                     // Copy warnings and errors
                     genericResult.getWarnings().addAll(pnrResult.getWarnings());
                     genericResult.getErrors().addAll(pnrResult.getErrors());
-                    
+
                     return genericResult;
                 } else {
                     // Use generic service for other data types
                     return messageExtractionService.extractMessages(
-                        logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport, selectedDataType);
+                        logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport, selectedDataType,
+                        debugMode, (msg) -> Platform.runLater(() -> addLogMessage(msg)));
                 }
             }
 
@@ -280,7 +296,7 @@ public class MessageExtractorController implements Initializable {
 
         boolean success;
         DataType dataType = lastResult != null ? lastResult.getRequestedDataType() : null;
-        
+
         if (dataType == DataType.PNR) {
             // Use PNR service for proper directory separation
             List<PnrMessage> pnrMessages = convertToPnrMessages(lastResult.getExtractedMessages());
@@ -304,10 +320,10 @@ public class MessageExtractorController implements Initializable {
      */
     private List<PnrMessage> convertToPnrMessages(List<EdifactMessage> edifactMessages) {
         List<PnrMessage> pnrMessages = new ArrayList<>();
-        
+
         for (EdifactMessage edifact : edifactMessages) {
             PnrMessage pnrMessage = new PnrMessage();
-            
+
             // Copy common properties
             pnrMessage.setDirection(edifact.getDirection());
             pnrMessage.setPartNumber(edifact.getPartNumber());
@@ -320,14 +336,14 @@ public class MessageExtractorController implements Initializable {
             pnrMessage.setLogTimestamp(null);
             pnrMessage.setLogTraceId(null);
             pnrMessage.setMessageType("PNRGOV");
-            
+
             // Set multipart flags
             pnrMessage.setLastPart("F".equals(edifact.getPartIndicator()));
             pnrMessage.setMultipart(edifact.getPartNumber() > 1 || "C".equals(edifact.getPartIndicator()));
-            
+
             pnrMessages.add(pnrMessage);
         }
-        
+
         return pnrMessages;
     }
 
@@ -336,10 +352,10 @@ public class MessageExtractorController implements Initializable {
      */
     private List<EdifactMessage> convertPnrToEdifactMessages(List<PnrMessage> pnrMessages) {
         List<EdifactMessage> edifactMessages = new ArrayList<>();
-        
+
         for (PnrMessage pnr : pnrMessages) {
             EdifactMessage edifact = new EdifactMessage();
-            
+
             // Copy common properties
             edifact.setDirection(pnr.getDirection());
             edifact.setPartNumber(pnr.getPartNumber());
@@ -349,7 +365,7 @@ public class MessageExtractorController implements Initializable {
             edifact.setRawContent(pnr.getRawContent());
             edifact.setMessageType(pnr.getMessageType());
             edifact.setLastPart(pnr.isLastPart());
-            
+
             // Convert flight details if available
             if (pnr.getFlightDetails() != null) {
                 FlightDetails flightDetails = new FlightDetails();
@@ -364,10 +380,10 @@ public class MessageExtractorController implements Initializable {
                 // Note: FlightDetails doesn't have airlineCode field, so we skip it
                 edifact.setFlightDetails(flightDetails);
             }
-            
+
             edifactMessages.add(edifact);
         }
-        
+
         return edifactMessages;
     }
 
@@ -534,3 +550,4 @@ public class MessageExtractorController implements Initializable {
         public String getPartIndicator() { return partIndicator; }
     }
 }
+

@@ -4,6 +4,7 @@ import com.l3.logparser.api.model.EdifactMessage;
 import com.l3.logparser.api.model.FlightDetails;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Parser for EDIFACT messages found in log files
@@ -104,6 +105,10 @@ public class EdifactParser {
      * Extract EDIFACT message from log content
      */
     public List<EdifactMessage> parseLogContent(String logContent, String targetFlightNumber) {
+        return parseLogContent(logContent, targetFlightNumber, false, null);
+    }
+
+    public List<EdifactMessage> parseLogContent(String logContent, String targetFlightNumber, boolean debugMode, Consumer<String> debugLogger) {
         List<EdifactMessage> messages = new ArrayList<>();
         String[] lines = logContent.split("\\r?\\n");
 
@@ -122,6 +127,11 @@ public class EdifactParser {
 
             // Check for start of EDIFACT message with $STX$UNA
             if (line.contains("$STX$UNA")) {
+                if (debugMode && debugLogger != null) {
+                    int unaIndex = line.indexOf("$STX$UNA");
+                    String debugLine = line.substring(unaIndex);
+                    debugLogger.accept("[Line " + lineNumber + "] Found potential message start with $STX$UNA: " + debugLine.substring(0, Math.min(debugLine.length(), 200)));
+                }
 
                 // Save previous message if exists
                 if (currentEdifactMessage != null && currentMessage.length() > 0) {
@@ -181,7 +191,7 @@ public class EdifactParser {
                     inMessage = true;
 
                     // Process the MessageForwarder EDIFACT content
-                    processMessageForwarderEdifact(edifactContent, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
+                    processMessageForwarderEdifact(edifactContent, currentMessage, currentEdifactMessage, messages, targetFlightNumber,false,null);
                     // Reset after processing MessageForwarder message
                     currentMessage = new StringBuilder();
                     currentEdifactMessage = null;
@@ -249,6 +259,9 @@ public class EdifactParser {
                     if (!contentAfterBracket.isEmpty()) {
                         // Check if this line contains UNA segment
                         if (contentAfterBracket.startsWith("UNA")) {
+                            if (debugMode && debugLogger != null) {
+                                debugLogger.accept("Found UNA segment: " + contentAfterBracket.substring(0, Math.min(contentAfterBracket.length(), 200)));
+                            }
                             // Parse UNA to get separators and store the segment
                             parseUNA(contentAfterBracket);
                             if (contentAfterBracket.length() >= 9) {
@@ -265,6 +278,9 @@ public class EdifactParser {
             }
             // Check for standalone UNA line
             else if (line.startsWith("UNA:") && !inMessage) {
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("[Line " + lineNumber + "] Found standalone UNA segment: " + line.substring(0, Math.min(line.length(), 200)));
+                }
                 boolean unaParseSuccess = parseUNA(line);
 
                 if (unaParseSuccess) {
@@ -320,6 +336,9 @@ public class EdifactParser {
             foundMessages++;
         }
 
+        if (debugMode && debugLogger != null) {
+            debugLogger.accept("Finished parsing log content. Total messages found: " + messages.size());
+        }
         return messages;
     }
 
@@ -351,7 +370,7 @@ public class EdifactParser {
             StringBuilder newMessageContent = new StringBuilder();
 
             // Process the embedded EDIFACT message within the UNA line
-            if (unaParseSuccess && unaLine.length() > 9) {
+            if (unaParseSuccess) {
                 processEmbeddedEdifactMessage(unaLine, newMessageContent, newMessage, messages, targetFlightNumber);
             }
         }
@@ -411,13 +430,13 @@ public class EdifactParser {
         }
 
         // Extract the EDIFACT content after the UNA header (UNA + 6 separators = 9 chars)
-        String edifactContent = unaLine.length() > 9 ? unaLine.substring(9) : "";
+        String edifactContent = unaLine.length() >= 9 ? unaLine.substring(9) : "";
 
         // Split the EDIFACT content by the terminator separator to get individual segments
         String[] segments = edifactContent.split("\\" + terminatorSeparator);
 
-        for (int i = 0; i < segments.length; i++) {
-            String segment = segments[i].trim();
+        for (String segment : segments) {
+            segment = segment.trim();
             if (!segment.isEmpty()) {
                 currentMessage.append(segment).append(terminatorSeparator).append("\n");
 
@@ -440,7 +459,7 @@ public class EdifactParser {
         }
 
         // If we didn't find UNZ, end the message anyway for single-line embedded messages
-        if (currentEdifactMessage != null && currentMessage.length() > 0) {
+        if (currentEdifactMessage != null && !currentMessage.toString().isEmpty()) {
             boolean messageAlreadyAdded = false;
             for (EdifactMessage msg : messages) {
                 if (msg.getMessageId() != null && msg.getMessageId().equals(currentEdifactMessage.getMessageId())) {
@@ -729,7 +748,7 @@ public class EdifactParser {
                         String dtmType = dtmParts[0];
                         String dateTime = dtmParts[1].replace(String.valueOf(terminatorSeparator), "").trim();
 
-                        if ("189".equals(dtmType)) {
+                        if ("189".equals(dtmType) && details.getDepartureDate().isEmpty() && details.getDepartureTime().isEmpty()) {
                             // Departure date/time: format YYMMDDHHMM
                             if (dateTime.length() >= 8) {
                                 String date = dateTime.substring(0, 6); // YYMMDD
@@ -737,7 +756,7 @@ public class EdifactParser {
                                 details.setDepartureDate(date);
                                 details.setDepartureTime(time);
                             }
-                        } else if ("232".equals(dtmType)) {
+                        } else if ("232".equals(dtmType) && details.getArrivalDate().isEmpty() && details.getArrivalTime().isEmpty()) {
                             // Arrival date/time: format YYMMDDHHMM
                             if (dateTime.length() >= 8) {
                                 String date = dateTime.substring(0, 6); // YYMMDD
@@ -784,8 +803,8 @@ public class EdifactParser {
     private void processMessageForwarderEdifact(String edifactContent, StringBuilder currentMessage,
                                                 EdifactMessage currentEdifactMessage,
                                                 List<EdifactMessage> messages,
-                                                String targetFlightNumber) {
-
+                                                String targetFlightNumber,
+                                                boolean debugMode, Consumer<String> debugLogger) {
         // Extract UNA segment from MessageForwarder content for preservation
         String unaSegment = null;
         if (edifactContent.startsWith("UNA") && edifactContent.length() >= 9) {
@@ -817,8 +836,8 @@ public class EdifactParser {
         boolean foundUNH = false;
         boolean foundTDT = false;
 
-        for (int i = 0; i < segments.length; i++) {
-            String segment = segments[i].trim();
+        for (String segment : segments) {
+            segment = segment.trim();
             if (!segment.isEmpty()) {
                 currentMessage.append(segment);
                 if (!segment.endsWith(String.valueOf(terminatorSeparator))) {
