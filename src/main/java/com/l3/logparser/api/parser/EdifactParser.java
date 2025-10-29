@@ -703,7 +703,8 @@ public class EdifactParser {
                     if ("745".equals(bgmCode)) {
                         message.setDataType("PASSENGER");
                         details.setPassengerData(true);
-                    } else if ("250".equals(bgmCode)) {
+                    }
+                    else if ("250".equals(bgmCode)) {
                         message.setDataType("CREW");
                         details.setPassengerData(false);
                     }
@@ -727,10 +728,11 @@ public class EdifactParser {
                     String locType = parts[1];
                     String airport = parts[2].replace(String.valueOf(terminatorSeparator), "").trim();
 
-                    if ("125".equals(locType)) {
+                    if ("125".equals(locType) && details.getDepartureAirport()==null) {
                         // Departure airport
                         details.setDepartureAirport(airport);
-                    } else if ("87".equals(locType)) {
+                    }
+                    else if ("87".equals(locType) && details.getArrivalAirport()==null) {
                         // Arrival airport
                         details.setArrivalAirport(airport);
                     }
@@ -748,7 +750,7 @@ public class EdifactParser {
                         String dtmType = dtmParts[0];
                         String dateTime = dtmParts[1].replace(String.valueOf(terminatorSeparator), "").trim();
 
-                        if ("189".equals(dtmType) && details.getDepartureDate().isEmpty() && details.getDepartureTime().isEmpty()) {
+                        if ("189".equals(dtmType) && details.getDepartureDate()==null && details.getDepartureTime()==null) {
                             // Departure date/time: format YYMMDDHHMM
                             if (dateTime.length() >= 8) {
                                 String date = dateTime.substring(0, 6); // YYMMDD
@@ -756,7 +758,8 @@ public class EdifactParser {
                                 details.setDepartureDate(date);
                                 details.setDepartureTime(time);
                             }
-                        } else if ("232".equals(dtmType) && details.getArrivalDate().isEmpty() && details.getArrivalTime().isEmpty()) {
+                        }
+                        else if ("232".equals(dtmType) && details.getArrivalDate()==null && details.getArrivalTime()==null) {
                             // Arrival date/time: format YYMMDDHHMM
                             if (dateTime.length() >= 8) {
                                 String date = dateTime.substring(0, 6); // YYMMDD

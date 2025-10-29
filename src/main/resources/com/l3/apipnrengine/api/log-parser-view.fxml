@@ -32,7 +32,7 @@
                                     <children>
                                         <Label minWidth="120.0" text="Log Directory:" />
                                         <TextField fx:id="logDirectoryField" HBox.hgrow="ALWAYS" />
-                                        <Button fx:id="browseButton" onAction="#onBrowseLogDirectory" text="Browse..." />
+                                        <Button fx:id="browseButton" onAction="#onBrowseLogDirectory" prefHeight="26.0" prefWidth="90.0" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse..." />
                                     </children>
                                 </HBox>
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
@@ -54,7 +54,9 @@
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
                                     <children>
                                         <Label minWidth="120.0" text="Data Type:" />
-                                        <ComboBox fx:id="dataTypeComboBox" prefWidth="150.0" />
+                                        <ComboBox fx:id="dataTypeComboBox" prefWidth="150.0" stylesheets="@log-parser-styles.css" />
+                                      <Label minWidth="120.0" text="Debug Mode:" />
+                                      <ToggleButton fx:id="debugToggleButton" onAction="#onDebugToggle" prefWidth="150.0" stylesheets="@log-parser-styles.css" text="OFF" />
                                         <Region HBox.hgrow="ALWAYS" />
                                     </children>
                                 </HBox>
@@ -62,7 +64,7 @@
                                     <children>
                                         <Label minWidth="120.0" text="Output Directory:" />
                                         <TextField fx:id="outputDirectoryField" HBox.hgrow="ALWAYS" />
-                                        <Button fx:id="browseOutputButton" onAction="#onBrowseOutputDirectory" text="Browse..." />
+                                        <Button fx:id="browseOutputButton" onAction="#onBrowseOutputDirectory" prefHeight="26.0" prefWidth="90.0" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse..." />
                                     </children>
                                 </HBox>
                             </children>
@@ -70,11 +72,9 @@
                         <Separator />
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                             <children>
-                                <Button fx:id="processButton" onAction="#onProcessLogs" style="-fx-background-color: #4CAF50; -fx-text-fill: white;" text="Process Logs" />
-                                <Button fx:id="clearButton" onAction="#onClearAll" text="Clear All" />
-                                <Button fx:id="saveButton" onAction="#onSaveExtracted" style="-fx-background-color: #2196F3; -fx-text-fill: white;" text="Save Extracted" />
-                                <Label text="Debug Mode:" />
-                                <ToggleButton fx:id="debugToggleButton" onAction="#onDebugToggle" text="OFF" />
+                                <Button fx:id="processButton" minWidth="95.0" onAction="#onProcessLogs" stylesheets="@log-parser-styles.css" text="Process Logs" />
+                                <Button fx:id="saveButton" minWidth="95.0" onAction="#onSaveExtracted" stylesheets="@log-parser-styles.css" text="Save Extracted" />
+                                <Button fx:id="clearButton" minWidth="95.0" onAction="#onClearAll" stylesheets="@log-parser-styles.css" text="Clear All" />
                                 <Region HBox.hgrow="ALWAYS" />
                                 <ProgressBar fx:id="progressBar" prefWidth="200.0" />
                                 <Label fx:id="statusLabel" text="Ready" />
