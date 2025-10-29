@@ -9,6 +9,7 @@ import com.l3.logparser.enums.DataType;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -42,6 +43,17 @@ public class MessageExtractionService {
                                           String departureAirport,
                                           String arrivalAirport,
                                           DataType dataType) {
+        return extractMessages(logDirectoryPath, flightNumber, departureDate, departureAirport, arrivalAirport, dataType, true, System.out::println);
+    }
+
+    public ExtractionResult extractMessages(String logDirectoryPath,
+                                          String flightNumber,
+                                          String departureDate,
+                                          String departureAirport,
+                                          String arrivalAirport,
+                                          DataType dataType,
+                                          boolean debugMode,
+                                          Consumer<String> debugLogger) {
 
         ExtractionResult result = new ExtractionResult();
         result.setFlightNumber(flightNumber);
@@ -60,15 +72,23 @@ public class MessageExtractionService {
 
             // Process different log file types based on data type
             if (dataType == DataType.API) {
-                allMessages.addAll(extractApiMessages(logDir, flightNumber, result));
+                allMessages.addAll(extractApiMessages(logDir, flightNumber, result, debugMode, debugLogger));
             }
 
             if (dataType == DataType.PNR) {
                 allMessages.addAll(extractPnrMessages(logDir, flightNumber, result));
             }
 
+            if (debugMode && debugLogger != null) {
+                debugLogger.accept("Total messages after parsing all files: " + allMessages.size());
+            }
+
             // Remove duplicate messages (same message ID from multiple files)
             List<EdifactMessage> deduplicatedMessages = removeDuplicateMessages(allMessages);
+
+            if (debugMode && debugLogger != null) {
+                debugLogger.accept("Total messages after deduplication: " + deduplicatedMessages.size());
+            }
 
             // Analyze part completeness
             analyzePartCompleteness(deduplicatedMessages, flightNumber);
@@ -76,6 +96,10 @@ public class MessageExtractionService {
             // Filter messages based on additional criteria
             List<EdifactMessage> filteredMessages = filterMessages(deduplicatedMessages,
                     flightNumber, departureDate, departureAirport, arrivalAirport);
+
+            if (debugMode && debugLogger != null) {
+                debugLogger.accept("Total messages after filtering: " + filteredMessages.size());
+            }
 
             result.setExtractedMessages(filteredMessages);
             result.setSuccess(true);
@@ -96,14 +120,14 @@ public class MessageExtractionService {
     /**
      * Extract API messages from log files
      */
-    private List<EdifactMessage> extractApiMessages(Path logDir, String flightNumber, ExtractionResult result) throws IOException {
+    private List<EdifactMessage> extractApiMessages(Path logDir, String flightNumber, ExtractionResult result, boolean debugMode, Consumer<String> debugLogger) throws IOException {
         List<EdifactMessage> messages = new ArrayList<>();
 
         // 1. Process das.log files first (highest priority for API)
         List<Path> dasLogFiles = findLogFiles(logDir, "das.log*");
 
         for (Path logFile : dasLogFiles) {
-            List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber);
+            List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber, debugMode, debugLogger);
             messages.addAll(fileMessages);
             result.addProcessedFile(logFile.toString());
         }
@@ -111,7 +135,7 @@ public class MessageExtractionService {
         // 2. Process MessageTypeB.log files for additional API parts
         List<Path> typeBLogFiles = findLogFiles(logDir, "MessageTypeB.log*");
         for (Path logFile : typeBLogFiles) {
-            List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber);
+            List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber, debugMode, debugLogger);
             messages.addAll(fileMessages);
             result.addProcessedFile(logFile.toString());
         }
@@ -119,7 +143,7 @@ public class MessageExtractionService {
         // 3. Process MessageAPI.log files for additional API parts
         List<Path> apiLogFiles = findLogFiles(logDir, "MessageAPI.log*");
         for (Path logFile : apiLogFiles) {
-            List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber);
+            List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber, debugMode, debugLogger);
             messages.addAll(fileMessages);
             result.addProcessedFile(logFile.toString());
         }
@@ -127,7 +151,7 @@ public class MessageExtractionService {
         // 4. Process MessageForwarder.log files for API output messages
         List<Path> forwarderLogFiles = findLogFiles(logDir, "MessageForwarder.log*");
         for (Path logFile : forwarderLogFiles) {
-            List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber);
+            List<EdifactMessage> fileMessages = processLogFile(logFile, flightNumber, debugMode, debugLogger);
             messages.addAll(fileMessages);
             result.addProcessedFile(logFile.toString());
         }
@@ -220,14 +244,17 @@ public class MessageExtractionService {
     /**
      * Process a single log file
      */
-    private List<EdifactMessage> processLogFile(Path logFile, String flightNumber) {
+    private List<EdifactMessage> processLogFile(Path logFile, String flightNumber, boolean debugMode, Consumer<String> debugLogger) {
         List<EdifactMessage> messages = new ArrayList<>();
 
         try {
+            if (debugLogger != null) {
+                debugLogger.accept("Processing file: " + logFile.getFileName());
+            }
             long fileSize = Files.size(logFile);
 
             if (fileSize > 50 * 1024 * 1024) { // If file is larger than 50MB
-                messages = processLargeLogFile(logFile, flightNumber);
+                messages = processLargeLogFile(logFile, flightNumber, debugMode, debugLogger);
             } else {
                 String content = Files.readString(logFile);
 
@@ -235,7 +262,7 @@ public class MessageExtractionService {
                 int unaCount = countOccurrences(content, "UNA:");
                 int tdtCount = countOccurrences(content, "TDT(");
 
-                messages = edifactParser.parseLogContent(content, flightNumber);
+                messages = edifactParser.parseLogContent(content, flightNumber, debugMode, debugLogger);
             }
 
         } catch (IOException e) {
@@ -251,7 +278,7 @@ public class MessageExtractionService {
     /**
      * Process large log files by reading in chunks
      */
-    private List<EdifactMessage> processLargeLogFile(Path logFile, String flightNumber) throws IOException {
+    private List<EdifactMessage> processLargeLogFile(Path logFile, String flightNumber, boolean debugMode, Consumer<String> debugLogger) throws IOException {
         List<EdifactMessage> messages = new ArrayList<>();
 
         try (BufferedReader reader = Files.newBufferedReader(logFile)) {
@@ -263,7 +290,7 @@ public class MessageExtractionService {
                 if (line.contains("$STX$UNA") || line.contains("UNA:") ||
                         line.contains("Failed to parse API message")) {
                     if (!buffer.isEmpty()) {
-                        List<EdifactMessage> chunkMessages = edifactParser.parseLogContent(buffer.toString(), flightNumber);
+                        List<EdifactMessage> chunkMessages = edifactParser.parseLogContent(buffer.toString(), flightNumber, debugMode, debugLogger);
                         messages.addAll(chunkMessages);
                         buffer.setLength(0);
                     }
@@ -278,7 +305,7 @@ public class MessageExtractionService {
                             (line.startsWith("WARN ") && !line.contains("Failed to parse API message") && !buffer.toString().trim().isEmpty()) ||
                             (line.startsWith("ERROR ") && !buffer.toString().trim().isEmpty())) {
                         if (!buffer.isEmpty()) {
-                            List<EdifactMessage> chunkMessages = edifactParser.parseLogContent(buffer.toString(), flightNumber);
+                            List<EdifactMessage> chunkMessages = edifactParser.parseLogContent(buffer.toString(), flightNumber, debugMode, debugLogger);
                             messages.addAll(chunkMessages);
                             buffer.setLength(0);
                         }
@@ -288,7 +315,7 @@ public class MessageExtractionService {
             }
 
             if (!buffer.isEmpty()) {
-                List<EdifactMessage> chunkMessages = edifactParser.parseLogContent(buffer.toString(), flightNumber);
+                List<EdifactMessage> chunkMessages = edifactParser.parseLogContent(buffer.toString(), flightNumber, debugMode, debugLogger);
                 messages.addAll(chunkMessages);
             }
         }
