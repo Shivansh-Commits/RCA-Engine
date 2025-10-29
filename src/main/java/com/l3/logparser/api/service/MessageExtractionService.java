@@ -146,10 +146,8 @@ public class MessageExtractionService {
         com.l3.logparser.pnr.service.PnrExtractionService pnrService =
             new com.l3.logparser.pnr.service.PnrExtractionService();
 
-        System.out.println("DEBUG: Calling PNR extraction service for flight: " + flightNumber);
-
         com.l3.logparser.pnr.service.PnrExtractionService.PnrExtractionResult pnrResult =
-            pnrService.extractPnrMessages(logDir.toString(), flightNumber);
+            pnrService.extractPnrMessages(logDir.toString(), flightNumber, null, null, null);
 
         // Convert PNR messages to EdifactMessage format for compatibility
         for (com.l3.logparser.pnr.model.PnrMessage pnrMessage : pnrResult.getExtractedMessages()) {
@@ -164,11 +162,6 @@ public class MessageExtractionService {
         for (String warning : pnrResult.getWarnings()) {
             result.addWarning("PNR: " + warning);
         }
-        for (String info : pnrResult.getInfo()) {
-            result.addInfo("PNR: " + info);
-        }
-
-        System.out.println("DEBUG: PNR extraction completed. Found " + messages.size() + " messages");
 
         return messages;
     }
@@ -185,6 +178,7 @@ public class MessageExtractionService {
         edifactMessage.setPartIndicator(pnrMessage.getPartIndicator());
         edifactMessage.setMessageType(pnrMessage.getMessageType());
         edifactMessage.setRawContent(pnrMessage.getRawContent());
+        edifactMessage.setDirection(pnrMessage.getDirection()); // Set direction
 
         // Convert PNR flight details to API flight details if available
         if (pnrMessage.getFlightDetails() != null) {
@@ -714,22 +708,26 @@ public class MessageExtractionService {
     }
 
     /**
-     * Remove duplicate messages based on message ID
+     * Remove duplicate messages but preserve multipart message parts
+     * For multipart messages, each part should be unique based on messageId + partNumber
      */
     private List<EdifactMessage> removeDuplicateMessages(List<EdifactMessage> messages) {
         Map<String, EdifactMessage> uniqueMessages = new LinkedHashMap<>();
 
         for (EdifactMessage msg : messages) {
-            String key = msg.getMessageId();
-            if (key == null) {
-                key = String.format("%s_P%d%s_%d",
+            // Create a unique key that includes both messageId and partNumber
+            // This ensures multipart messages (same messageId, different parts) are preserved
+            String baseKey = msg.getMessageId();
+            if (baseKey == null) {
+                baseKey = String.format("%s_%d",
                     msg.getFlightNumber() != null ? msg.getFlightNumber() : "UNKNOWN",
-                    msg.getPartNumber(),
-                    msg.getPartIndicator() != null ? msg.getPartIndicator() : "C",
                     System.nanoTime());
             }
-
-            uniqueMessages.putIfAbsent(key, msg);
+            
+            // Add part number to make each part unique
+            String uniqueKey = baseKey + "_PART_" + msg.getPartNumber();
+            
+            uniqueMessages.putIfAbsent(uniqueKey, msg);
         }
 
         return new ArrayList<>(uniqueMessages.values());

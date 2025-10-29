@@ -3,6 +3,9 @@ package com.l3.logparser.controller;
 import com.l3.logparser.api.model.EdifactMessage;
 import com.l3.logparser.api.model.FlightDetails;
 import com.l3.logparser.api.service.MessageExtractionService;
+import com.l3.logparser.pnr.service.PnrExtractionService;
+import com.l3.logparser.pnr.model.PnrMessage;
+import com.l3.logparser.pnr.model.PnrFlightDetails;
 import com.l3.logparser.enums.DataType;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -19,6 +22,7 @@ import java.io.File;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
 
@@ -58,11 +62,13 @@ public class MessageExtractorController implements Initializable {
     @FXML private Label summaryLabel;
 
     private MessageExtractionService messageExtractionService;
+    private PnrExtractionService pnrExtractionService;
     private MessageExtractionService.ExtractionResult lastResult;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         messageExtractionService = new MessageExtractionService();
+        pnrExtractionService = new PnrExtractionService();
         setupTableColumns();
         setupTableSelection();
         setupUI();
@@ -83,11 +89,29 @@ public class MessageExtractorController implements Initializable {
         resultsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             if (newSelection != null) {
                 EdifactMessage message = newSelection.getOriginalMessage();
-                messagePreviewArea.setText(message.getRawContent());
+                String formattedContent = formatEdifactMessage(message.getRawContent());
+                messagePreviewArea.setText(formattedContent);
             } else {
                 messagePreviewArea.clear();
             }
         });
+    }
+
+    /**
+     * Formats EDIFACT message content by placing each segment on a separate line.
+     * Replaces segment terminator characters (') with line breaks for better readability.
+     * 
+     * @param rawContent The raw EDIFACT message content
+     * @return Formatted message with segments on separate lines
+     */
+    private String formatEdifactMessage(String rawContent) {
+        if (rawContent == null || rawContent.trim().isEmpty()) {
+            return rawContent;
+        }
+        
+        // Replace EDIFACT segment terminators (') with line breaks
+        // The segment terminator is typically the last character in each segment
+        return rawContent.replace("'", "'\n");
     }
 
     private void setupUI() {
@@ -161,8 +185,35 @@ public class MessageExtractorController implements Initializable {
         Task<MessageExtractionService.ExtractionResult> task = new Task<MessageExtractionService.ExtractionResult>() {
             @Override
             protected MessageExtractionService.ExtractionResult call() throws Exception {
-                return messageExtractionService.extractMessages(
-                    logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport, selectedDataType);
+                if (selectedDataType == DataType.PNR) {
+                    // Use PNR service for proper filtering and analysis
+                    PnrExtractionService.PnrExtractionResult pnrResult = pnrExtractionService.extractPnrMessages(
+                        logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport);
+                    
+                    // Convert PNR result to generic result format
+                    MessageExtractionService.ExtractionResult genericResult = 
+                        new MessageExtractionService.ExtractionResult();
+                    genericResult.setRequestedDataType(selectedDataType);
+                    genericResult.setSuccess(pnrResult.isSuccess());
+                    
+                    // Set flight number and log directory from PNR result
+                    genericResult.setFlightNumber(pnrResult.getFlightNumber());
+                    genericResult.setLogDirectoryPath(pnrResult.getLogDirectoryPath());
+                    
+                    // Convert PNR messages to generic EDIFACT messages
+                    List<EdifactMessage> edifactMessages = convertPnrToEdifactMessages(pnrResult.getExtractedMessages());
+                    genericResult.setExtractedMessages(edifactMessages);
+                    
+                    // Copy warnings and errors
+                    genericResult.getWarnings().addAll(pnrResult.getWarnings());
+                    genericResult.getErrors().addAll(pnrResult.getErrors());
+                    
+                    return genericResult;
+                } else {
+                    // Use generic service for other data types
+                    return messageExtractionService.extractMessages(
+                        logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport, selectedDataType);
+                }
             }
 
             @Override
@@ -227,8 +278,18 @@ public class MessageExtractorController implements Initializable {
             return;
         }
 
-        boolean success = messageExtractionService.saveExtractedMessages(
-            lastResult.getExtractedMessages(), outputDirectory);
+        boolean success;
+        DataType dataType = lastResult != null ? lastResult.getRequestedDataType() : null;
+        
+        if (dataType == DataType.PNR) {
+            // Use PNR service for proper directory separation
+            List<PnrMessage> pnrMessages = convertToPnrMessages(lastResult.getExtractedMessages());
+            success = pnrExtractionService.saveExtractedMessages(pnrMessages, outputDirectory);
+        } else {
+            // Use generic service for other message types
+            success = messageExtractionService.saveExtractedMessages(
+                lastResult.getExtractedMessages(), outputDirectory);
+        }
 
         if (success) {
             showAlert("Success", "Extracted messages saved successfully to:\n" + outputDirectory);
@@ -236,6 +297,78 @@ public class MessageExtractorController implements Initializable {
         } else {
             showAlert("Error", "Failed to save extracted messages");
         }
+    }
+
+    /**
+     * Convert EdifactMessage list to PnrMessage list for PNR-specific operations
+     */
+    private List<PnrMessage> convertToPnrMessages(List<EdifactMessage> edifactMessages) {
+        List<PnrMessage> pnrMessages = new ArrayList<>();
+        
+        for (EdifactMessage edifact : edifactMessages) {
+            PnrMessage pnrMessage = new PnrMessage();
+            
+            // Copy common properties
+            pnrMessage.setDirection(edifact.getDirection());
+            pnrMessage.setPartNumber(edifact.getPartNumber());
+            pnrMessage.setPartIndicator(edifact.getPartIndicator());
+            pnrMessage.setFlightNumber(edifact.getFlightNumber());
+            pnrMessage.setMessageId(edifact.getMessageId());
+            pnrMessage.setRawContent(edifact.getRawContent());
+            // Note: EdifactMessage doesn't have timestamp/traceId fields
+            // These would need to be set from the original log parsing context
+            pnrMessage.setLogTimestamp(null);
+            pnrMessage.setLogTraceId(null);
+            pnrMessage.setMessageType("PNRGOV");
+            
+            // Set multipart flags
+            pnrMessage.setLastPart("F".equals(edifact.getPartIndicator()));
+            pnrMessage.setMultipart(edifact.getPartNumber() > 1 || "C".equals(edifact.getPartIndicator()));
+            
+            pnrMessages.add(pnrMessage);
+        }
+        
+        return pnrMessages;
+    }
+
+    /**
+     * Convert PnrMessage list to EdifactMessage list for UI display
+     */
+    private List<EdifactMessage> convertPnrToEdifactMessages(List<PnrMessage> pnrMessages) {
+        List<EdifactMessage> edifactMessages = new ArrayList<>();
+        
+        for (PnrMessage pnr : pnrMessages) {
+            EdifactMessage edifact = new EdifactMessage();
+            
+            // Copy common properties
+            edifact.setDirection(pnr.getDirection());
+            edifact.setPartNumber(pnr.getPartNumber());
+            edifact.setPartIndicator(pnr.getPartIndicator());
+            edifact.setFlightNumber(pnr.getFlightNumber());
+            edifact.setMessageId(pnr.getMessageId());
+            edifact.setRawContent(pnr.getRawContent());
+            edifact.setMessageType(pnr.getMessageType());
+            edifact.setLastPart(pnr.isLastPart());
+            
+            // Convert flight details if available
+            if (pnr.getFlightDetails() != null) {
+                FlightDetails flightDetails = new FlightDetails();
+                PnrFlightDetails pnrDetails = pnr.getFlightDetails();
+                flightDetails.setDepartureDate(pnrDetails.getDepartureDate());
+                flightDetails.setDepartureTime(pnrDetails.getDepartureTime());
+                flightDetails.setArrivalDate(pnrDetails.getArrivalDate());
+                flightDetails.setArrivalTime(pnrDetails.getArrivalTime());
+                flightDetails.setDepartureAirport(pnrDetails.getDepartureAirport());
+                flightDetails.setArrivalAirport(pnrDetails.getArrivalAirport());
+                flightDetails.setFlightNumber(pnrDetails.getFlightNumber());
+                // Note: FlightDetails doesn't have airlineCode field, so we skip it
+                edifact.setFlightDetails(flightDetails);
+            }
+            
+            edifactMessages.add(edifact);
+        }
+        
+        return edifactMessages;
     }
 
     private void clearResults() {
@@ -254,12 +387,12 @@ public class MessageExtractorController implements Initializable {
             result.getPartCount(), result.getProcessedFiles().size());
         summaryLabel.setText(summary);
 
-        // Sort extracted messages by message type (INPUT first, then OUTPUT) and then by part number
+        // Sort extracted messages by direction (INPUT first, then OUTPUT) and then by part number
         List<EdifactMessage> sortedMessages = result.getExtractedMessages().stream()
                 .sorted((m1, m2) -> {
-                    // First sort by message type (INPUT comes before OUTPUT)
-                    String type1 = m1.getMessageType() != null ? m1.getMessageType() : "INPUT";
-                    String type2 = m2.getMessageType() != null ? m2.getMessageType() : "INPUT";
+                    // First sort by direction (INPUT comes before OUTPUT)
+                    String type1 = m1.getDirection() != null ? m1.getDirection().toString() : "INPUT";
+                    String type2 = m2.getDirection() != null ? m2.getDirection().toString() : "INPUT";
                     int typeComparison = type1.compareTo(type2);
 
                     if (typeComparison != 0) {
@@ -273,8 +406,9 @@ public class MessageExtractorController implements Initializable {
 
         // Populate results table with sorted messages
         ObservableList<MessageTableRow> tableData = FXCollections.observableArrayList();
+        String requestedDataTypeDisplay = result.getRequestedDataType().getDisplayName();
         for (EdifactMessage message : sortedMessages) {
-            tableData.add(new MessageTableRow(message));
+            tableData.add(new MessageTableRow(message, requestedDataTypeDisplay));
         }
         resultsTable.setItems(tableData);
 
@@ -285,8 +419,14 @@ public class MessageExtractorController implements Initializable {
         addLogMessage("Log Directory: " + result.getLogDirectoryPath());
 
         // Count INPUT vs OUTPUT messages
-        long inputCount = sortedMessages.stream().filter(m -> !"OUTPUT".equals(m.getMessageType())).count();
-        long outputCount = sortedMessages.stream().filter(m -> "OUTPUT".equals(m.getMessageType())).count();
+        long inputCount = sortedMessages.stream().filter(m -> {
+            String direction = m.getDirection() != null ? m.getDirection().toString() : "INPUT";
+            return "INPUT".equals(direction);
+        }).count();
+        long outputCount = sortedMessages.stream().filter(m -> {
+            String direction = m.getDirection() != null ? m.getDirection().toString() : "INPUT";
+            return "OUTPUT".equals(direction);
+        }).count();
         addLogMessage("Input messages: " + inputCount + ", Output messages: " + outputCount);
 
         for (String file : result.getProcessedFiles()) {
@@ -340,6 +480,10 @@ public class MessageExtractorController implements Initializable {
         private final String partIndicator;
 
         public MessageTableRow(EdifactMessage message) {
+            this(message, message.getDataType() != null ? message.getDataType() : "Unknown");
+        }
+
+        public MessageTableRow(EdifactMessage message, String requestedDataType) {
             this.originalMessage = message;
             this.partNumber = message.getPartNumber();
 
@@ -349,16 +493,24 @@ public class MessageExtractorController implements Initializable {
                 this.departureDateTime = formatDateTime(details.getDepartureDate(), details.getDepartureTime());
                 this.departureAirport = details.getDepartureAirport() != null ? details.getDepartureAirport() : "N/A";
                 this.arrivalAirport = details.getArrivalAirport() != null ? details.getArrivalAirport() : "N/A";
-                this.dataType = message.getDataType() != null ? message.getDataType() : (details.isPassengerData() ? "Passenger" : "Crew");
+                this.dataType = requestedDataType; // Use the requested data type instead of message-level type
             } else {
                 this.flightNumber = message.getFlightNumber() != null ? message.getFlightNumber() : "N/A";
                 this.departureDateTime = "N/A";
                 this.departureAirport = "N/A";
                 this.arrivalAirport = "N/A";
-                this.dataType = message.getDataType() != null ? message.getDataType() : "Unknown";
+                this.dataType = requestedDataType; // Use the requested data type instead of message-level type
             }
 
-            this.partIndicator = message.getPartIndicator() != null ? message.getPartIndicator() : "C";
+            // Set part indicator based on message direction and part type
+            if (message.getDirection() == com.l3.logparser.enums.MessageType.OUTPUT) {
+                // Output messages always show F(Output)
+                this.partIndicator = "F(Output)";
+            } else {
+                // Input messages: show actual part indicator (C for continuation, F for final)
+                String baseIndicator = message.getPartIndicator() != null ? message.getPartIndicator() : "C";
+                this.partIndicator = baseIndicator;
+            }
         }
 
         private String formatDateTime(String date, String time) {

@@ -1,6 +1,5 @@
 package com.l3.logparser;
 
-import com.l3.logparser.controller.MessageExtractorController;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
@@ -16,7 +15,7 @@ public class MessageExtractorApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(MessageExtractorApplication.class.getResource("/fxml/logparser/log-parser-view.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(MessageExtractorApplication.class.getResource("/com/l3/apipnrengine/api/log-parser-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
 
         primaryStage.setTitle("L3 Engine - Message Extractor Module");

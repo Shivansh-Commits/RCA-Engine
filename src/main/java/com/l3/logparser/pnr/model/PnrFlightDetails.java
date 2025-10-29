@@ -1,30 +1,33 @@
 package com.l3.logparser.pnr.model;
 
 /**
- * Model representing PNR flight details extracted from TVL segment in MessageMHPNRGOV.log files
+ * Model representing flight details extracted from PNR TVL segments
+ * Format: TVL+290825:1435:290825:2325+OSL+DXB+EK+0160'
  */
 public class PnrFlightDetails {
     private String flightNumber;
     private String airlineCode;
     private String departureAirport;
     private String arrivalAirport;
-    private String departureDate; // ddmmyy format
-    private String departureTime; // hhmm format
-    private String arrivalDate;   // ddmmyy format
-    private String arrivalTime;   // hhmm format
+    private String departureDate; // ddmmyy format from TVL
+    private String departureTime; // hhmm format from TVL
+    private String arrivalDate;   // ddmmyy format from TVL
+    private String arrivalTime;   // hhmm format from TVL
+    private String rawTvlSegment; // Original TVL segment for reference
 
     public PnrFlightDetails() {}
 
-    public PnrFlightDetails(String departureDate, String departureTime, String arrivalDate, String arrivalTime,
-                           String departureAirport, String arrivalAirport, String airlineCode, String flightNumber) {
+    public PnrFlightDetails(String airlineCode, String flightNumber, String departureAirport, 
+                           String arrivalAirport, String departureDate, String departureTime, 
+                           String arrivalDate, String arrivalTime) {
+        this.airlineCode = airlineCode;
+        this.flightNumber = flightNumber;
+        this.departureAirport = departureAirport;
+        this.arrivalAirport = arrivalAirport;
         this.departureDate = departureDate;
         this.departureTime = departureTime;
         this.arrivalDate = arrivalDate;
         this.arrivalTime = arrivalTime;
-        this.departureAirport = departureAirport;
-        this.arrivalAirport = arrivalAirport;
-        this.airlineCode = airlineCode;
-        this.flightNumber = flightNumber;
     }
 
     // Getters and Setters
@@ -52,88 +55,45 @@ public class PnrFlightDetails {
     public String getArrivalTime() { return arrivalTime; }
     public void setArrivalTime(String arrivalTime) { this.arrivalTime = arrivalTime; }
 
+    public String getRawTvlSegment() { return rawTvlSegment; }
+    public void setRawTvlSegment(String rawTvlSegment) { this.rawTvlSegment = rawTvlSegment; }
+
     /**
-     * Get full flight identifier (airline + flight number)
+     * Get the full flight identifier (airline + flight number)
      */
     public String getFullFlightNumber() {
-        if (airlineCode != null && flightNumber != null) {
-            return airlineCode + flightNumber;
-        }
-        return flightNumber != null ? flightNumber : "";
+        return (airlineCode != null ? airlineCode : "") + (flightNumber != null ? flightNumber : "");
     }
 
     /**
-     * Get route string for display
-     */
-    public String getRoute() {
-        return String.format("%s-%s",
-                departureAirport != null ? departureAirport : "???",
-                arrivalAirport != null ? arrivalAirport : "???");
-    }
-
-    /**
-     * Get departure datetime string for display
+     * Get departure date and time as a formatted string
      */
     public String getDepartureDateTime() {
         if (departureDate != null && departureTime != null) {
-            return String.format("%s %s", formatDate(departureDate), formatTime(departureTime));
+            return departureDate + " " + departureTime;
         }
-        return departureDate != null ? formatDate(departureDate) : "???";
+        return departureDate != null ? departureDate : "";
     }
 
     /**
-     * Get arrival datetime string for display
+     * Get arrival date and time as a formatted string
      */
     public String getArrivalDateTime() {
         if (arrivalDate != null && arrivalTime != null) {
-            return String.format("%s %s", formatDate(arrivalDate), formatTime(arrivalTime));
+            return arrivalDate + " " + arrivalTime;
         }
-        return arrivalDate != null ? formatDate(arrivalDate) : "???";
-    }
-
-    /**
-     * Get display name for UI
-     */
-    public String getDisplayName() {
-        return String.format("%s (%s) %s", getFullFlightNumber(), getRoute(), getDepartureDateTime());
-    }
-
-    /**
-     * Format date from ddmmyy to readable format
-     */
-    private String formatDate(String ddmmyy) {
-        if (ddmmyy != null && ddmmyy.length() == 6) {
-            try {
-                String dd = ddmmyy.substring(0, 2);
-                String mm = ddmmyy.substring(2, 4);
-                String yy = ddmmyy.substring(4, 6);
-                return String.format("20%s-%s-%s", yy, mm, dd);
-            } catch (Exception e) {
-                return ddmmyy;
-            }
-        }
-        return ddmmyy != null ? ddmmyy : "";
-    }
-
-    /**
-     * Format time from hhmm to readable format
-     */
-    private String formatTime(String hhmm) {
-        if (hhmm != null && hhmm.length() == 4) {
-            try {
-                String hh = hhmm.substring(0, 2);
-                String mm = hhmm.substring(2, 4);
-                return String.format("%s:%s", hh, mm);
-            } catch (Exception e) {
-                return hhmm;
-            }
-        }
-        return hhmm != null ? hhmm : "";
+        return arrivalDate != null ? arrivalDate : "";
     }
 
     @Override
     public String toString() {
-        return String.format("PnrFlightDetails{flight='%s', route='%s', departure='%s', arrival='%s'}",
-                getFullFlightNumber(), getRoute(), getDepartureDateTime(), getArrivalDateTime());
+        return "PnrFlightDetails{" +
+                "airlineCode='" + airlineCode + '\'' +
+                ", flightNumber='" + flightNumber + '\'' +
+                ", departureAirport='" + departureAirport + '\'' +
+                ", arrivalAirport='" + arrivalAirport + '\'' +
+                ", departureDateTime='" + getDepartureDateTime() + '\'' +
+                ", arrivalDateTime='" + getArrivalDateTime() + '\'' +
+                '}';
     }
 }
