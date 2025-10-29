@@ -8,14 +8,14 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.launcher.LauncherController">
+<BorderPane stylesheets="@launcher-styles.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.launcher.LauncherController">
    <center>
-      <VBox fx:id="root" alignment="CENTER" prefHeight="342.0" prefWidth="452.0" spacing="30.0" style="-fx-background-color: #2b3e2b;">
+      <VBox fx:id="root" alignment="CENTER" prefHeight="342.0" prefWidth="697.0" spacing="30.0">
          <padding>
-            <Insets bottom="30.0" left="30.0" right="30.0" top="30.0" />
+            <Insets bottom="30.0" left="30.0" right="30.0" top="10.0" />
          </padding>
          <children>
-            <Button mnemonicParsing="false" prefHeight="62.0" prefWidth="345.0" style="-fx-background-color: linear-gradient(to bottom, #2b3e2b, #436143);; -fx-background-radius: 5;" text="Log Extraction Engine" textFill="WHITE">
+            <Button mnemonicParsing="false" prefHeight="62.0" prefWidth="345.0" stylesheets="@launcher-styles.css" text="Log Extraction Engine" textFill="WHITE">
                <padding>
                   <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
                </padding>
@@ -26,7 +26,7 @@
                   <Cursor fx:constant="HAND" />
                </cursor>
             </Button>
-            <Button fx:id="logParserButton" mnemonicParsing="false" onAction="#openLogParserModule" prefHeight="62.0" prefWidth="345.0" style="-fx-background-color: linear-gradient(to bottom, #2b3e2b, #436143);; -fx-background-radius: 5;" text="Log Parser Engine" textFill="WHITE">
+            <Button fx:id="logParserButton" mnemonicParsing="false" onAction="#openLogParserModule" prefHeight="62.0" prefWidth="345.0" stylesheets="@launcher-styles.css" text="Log Parser Engine" textFill="WHITE">
                <padding>
                   <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
                </padding>
@@ -37,7 +37,7 @@
                   <Cursor fx:constant="HAND" />
                </cursor>
             </Button>
-            <Button fx:id="dataEngineButton" mnemonicParsing="false" onAction="#openDataEngineModule" prefWidth="345.0" style="-fx-background-color: linear-gradient(to bottom, #2b3e2b, #436143); -fx-background-radius: 5;" text="API/PNR Engine" textFill="WHITE">
+            <Button fx:id="dataEngineButton" mnemonicParsing="false" onAction="#openDataEngineModule" prefWidth="345.0" stylesheets="@launcher-styles.css" text="API/PNR Engine" textFill="WHITE">
                <font>
                   <Font size="15.0" />
                </font>
@@ -52,9 +52,9 @@
       </VBox>
    </center>
    <top>
-      <VBox alignment="CENTER" prefHeight="100.0" prefWidth="452.0" spacing="10.0" style="-fx-background-color: #2b3e2b;" BorderPane.alignment="CENTER">
+      <VBox alignment="CENTER" prefHeight="100.0" prefWidth="452.0" spacing="10.0" stylesheets="@launcher-styles.css" BorderPane.alignment="CENTER">
          <children>
-            <Label fx:id="titleLabel" text="L3 Engine - Launcher" textFill="#e1e0e0">
+            <Label fx:id="titleLabel" stylesheets="@launcher-styles.css" text="L3 Engine - Launcher" textFill="#e1e0e0">
                <font>
                   <Font name="System Bold" size="27.0" />
                </font>

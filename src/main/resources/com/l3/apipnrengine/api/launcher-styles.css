@@ -1,0 +1,56 @@
+/* Launcher View Styles - Refined Green & Charcoal Theme */
+
+/* Dark, elegant background */
+.root {
+    -fx-background-color: radial-gradient(center 50% 0%, radius 100%, #3a4a3a, #1a201a);
+}
+
+/* Integrated dark buttons with green accent */
+.button, #logParserButton, #dataEngineButton {
+    -fx-background-color: linear-gradient(to bottom, #3a4a3a, #1a201a);
+    -fx-text-fill: white; /* Muted light green text */
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-font-weight: 500; /* Semibold for clarity */
+    -fx-font-size: 16px;
+    -fx-padding: 20 25;
+    -fx-border-color: rgba(255, 255, 255, 0.1);
+    -fx-border-width: 1px;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.5), 10, 0, 0, 4);
+}
+
+.button:hover, #logParserButton:hover, #dataEngineButton:hover {
+    -fx-background-color: linear-gradient(to bottom, #3a4a3a, #222);
+    -fx-text-fill: white; /* Brighter green text on hover */
+    -fx-border-color: #a8e6cf; /* Glowing border on hover */
+    -fx-effect: dropshadow(gaussian, rgba(168, 230, 207, 0.25), 15, 0, 0, 0);
+}
+
+.button:pressed, #logParserButton:pressed, #dataEngineButton:pressed {
+    -fx-background-color: linear-gradient(to bottom, #3a4a3a, #333);
+    -fx-effect: innershadow(three-pass-box, rgba(0,0,0,0.4), 10, 0, 0, 4);
+    -fx-text-fill: #7fbf9f;
+}
+
+/* Elegant title typography */
+#titleLabel {
+    -fx-text-fill: white;
+    -fx-font-family: "Segoe UI Light", "Arial", sans-serif;
+    -fx-font-weight: 300;
+    -fx-font-size: 34px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 5, 0, 0, 2);
+}
+
+/* Muted and classy description */
+#descLabel {
+    -fx-text-fill: #99b9a9;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 15px;
+}
+
+/* Make top VBox transparent to blend with the background */
+.vbox {
+    -fx-background-color: transparent;
+}

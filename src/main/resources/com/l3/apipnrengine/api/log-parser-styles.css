@@ -1,0 +1,138 @@
+/* Log Parser View Styles */
+
+/* Debug Toggle Button - OFF state (lighter version of #2b3e2b theme) */
+#debugToggleButton {
+    -fx-background-color: white;
+    -fx-border-color: #f5a4a4;
+    -fx-text-fill: #8b0000;
+    -fx-font-weight: 600;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+/* Debug Toggle Button - ON state (light green based on #2b3e2b) */
+#debugToggleButton:selected {
+    -fx-background-color: linear-gradient(to bottom, #e8f2e8, #d4e6d4);
+    -fx-border-color: #7db87d;
+    -fx-text-fill: #1a2d1a;
+    -fx-font-weight: 600;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+}
+
+/* Debug Toggle Button - Hover effects */
+#debugToggleButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #eddada);
+    -fx-border-color: #ff6666;
+}
+
+#debugToggleButton:selected:hover {
+    -fx-background-color: linear-gradient(to bottom, #d4e6d4, #c3dcc3);
+    -fx-border-color: #6ba86b;
+}
+
+/* Process Button */
+#processButton {
+    -fx-background-color: white;
+    -fx-text-fill: #2c472c;
+    -fx-font-weight: 600;
+    -fx-border-color: #2c472c;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+#processButton:hover {
+    -fx-background-color:  linear-gradient(to bottom, white , #d1f0d1);
+    -fx-border-color: #6ba86b;
+    -fx-text-fill:#2b3e2b;
+}
+
+#processButton:pressed {
+    -fx-background-color: #3d633d;
+}
+
+/* Clear Button - Neutral theme-based styling */
+#clearButton {
+    -fx-background-color: white;
+    -fx-border-color: #f5a4a4;
+    -fx-text-fill: #8b0000;
+    -fx-font-weight: 600;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+#clearButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #eddada);
+    -fx-border-color: #f77777;
+}
+
+#clearButton:pressed {
+    -fx-background-color: #c75a5a;
+}
+
+/* Save Button - Light blue harmonizing with green theme */
+#saveButton {
+    -fx-background-color: white;
+    -fx-text-fill: #4694e8;
+    -fx-font-weight: 600;
+    -fx-border-color: #589ee8;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+#saveButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white , #c3cfe8);
+    -fx-border-color: #589ee8;
+    -fx-text-fill : #236cc2;
+}
+
+#saveButton:pressed {
+    -fx-background-color: linear-gradient(to bottom, #c3d7da, #78b4f5) !important;
+}
+
+/* Save Button - Light blue harmonizing with green theme */
+.browseButton {
+    -fx-background-color: white;
+    -fx-text-fill: black;
+    -fx-font-weight: 600;
+    -fx-border-color: grey;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+.browseButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #e6e8e6);
+    -fx-border-color: grey;
+    -fx-text-fill : black;
+}
+
+.browseButton:pressed {
+    -fx-background-color: linear-gradient(to bottom, white, #caccca);
+}
+
+.combo-box {
+    -fx-background-color: white;
+    -fx-border-color: grey;
+    }
