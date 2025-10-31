@@ -15,7 +15,7 @@ public class MessageExtractorApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(MessageExtractorApplication.class.getResource("/com/l3/apipnrengine/api/log-parser-view.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(MessageExtractorApplication.class.getResource("/com/l3/rcaengine/api/log-parser-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
 
         primaryStage.setTitle("L3 Engine - Message Extractor Module");

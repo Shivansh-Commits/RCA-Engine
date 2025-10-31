@@ -15,7 +15,7 @@ public class Main extends Application {
     @Override
     public void start(Stage primaryStage) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/l3/apipnrengine/api/launcher-view.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/l3/rcaengine/api/launcher-view.fxml"));
             BorderPane root = loader.load();
 
             Scene scene = new Scene(root, 550, 500);
