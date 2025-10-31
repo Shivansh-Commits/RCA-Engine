@@ -12,6 +12,7 @@
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
@@ -30,14 +31,17 @@
                                 <Label style="-fx-font-weight: bold;" text="Log Directory and Flight Criteria" />
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
                                     <children>
-                                        <Label minWidth="120.0" text="Log Directory:" />
+                                        <Label minWidth="120.0" text="Log Directory : (Help)">
+                                 <tooltip>
+                                    <Tooltip text="Only .txt files are valid" />
+                                 </tooltip></Label>
                                         <TextField fx:id="logDirectoryField" HBox.hgrow="ALWAYS" />
                                         <Button fx:id="browseButton" onAction="#onBrowseLogDirectory" prefHeight="26.0" prefWidth="90.0" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse..." />
                                     </children>
                                 </HBox>
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
                                     <children>
-                                        <Label minWidth="120.0" text="Flight Number:" />
+                                        <Label minWidth="120.0" text="Flight Number : " />
                                         <TextField fx:id="flightNumberField" prefWidth="150.0" />
                                         <Label minWidth="120.0" text="Departure Date:" />
                                         <TextField fx:id="departureDateField" prefWidth="150.0" />
@@ -45,7 +49,7 @@
                                 </HBox>
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
                                     <children>
-                                        <Label minWidth="120.0" text="Departure Airport:" />
+                                        <Label minWidth="120.0" text="Departure Airport : " />
                                         <TextField fx:id="departureAirportField" prefWidth="150.0" />
                                         <Label minWidth="120.0" text="Arrival Airport:" />
                                         <TextField fx:id="arrivalAirportField" prefWidth="150.0" />
@@ -53,10 +57,13 @@
                                 </HBox>
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
                                     <children>
-                                        <Label minWidth="120.0" text="Data Type:" />
+                                        <Label minWidth="120.0" text="Data Type : " />
                                         <ComboBox fx:id="dataTypeComboBox" prefWidth="150.0" stylesheets="@log-parser-styles.css" />
                                       <Label minWidth="120.0" text="Debug Mode:" />
-                                      <ToggleButton fx:id="debugToggleButton" onAction="#onDebugToggle" prefWidth="150.0" stylesheets="@log-parser-styles.css" text="OFF" />
+                                      <ToggleButton fx:id="debugToggleButton" onAction="#onDebugToggle" prefWidth="150.0" stylesheets="@log-parser-styles.css" text="OFF">
+                                 <tooltip>
+                                    <Tooltip text="Keep OFF untill suggested by L3 Devs" />
+                                 </tooltip></ToggleButton>
                                         <Region HBox.hgrow="ALWAYS" />
                                     </children>
                                 </HBox>
