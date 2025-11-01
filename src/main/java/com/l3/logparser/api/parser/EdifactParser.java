@@ -15,12 +15,31 @@ public class EdifactParser {
     private static final String UNA_PATTERN = "UNA:(.)(.)(.)(.)(.)(.)";
     private static final String UNH_PATTERN = "UNH(.)(\\d+)(.)(PAXLST:D:05B:UN:IATA(.)(\\w+)(.)(.+?)(.)";
 
-    private char subElementSeparator = ':';
-    private char elementSeparator = '(';
-    private char decimalSeparator = '.';
-    private char releaseIndicator = ')';
-    private char reservedSeparator = ' ';
-    private char terminatorSeparator = '-';
+    private char subElementSeparator;
+    private char elementSeparator;
+    private char decimalSeparator;
+    private char releaseIndicator;
+    private char reservedSeparator;
+    private char terminatorSeparator;
+
+    /**
+     * Constructor - initialize with default EDIFACT separators
+     */
+    public EdifactParser() {
+        setDefaultSeparators();
+    }
+
+    /**
+     * Set default EDIFACT separators when UNA segment is not available (e.g., for UNB messages)
+     */
+    private void setDefaultSeparators() {
+        subElementSeparator = ':';
+        elementSeparator = '+';
+        decimalSeparator = '.';
+        releaseIndicator = '?';
+        reservedSeparator = ' ';
+        terminatorSeparator = '\'';
+    }
 
     /**
      * Parse UNA segment to extract separators - enhanced with error recovery
@@ -65,16 +84,12 @@ public class EdifactParser {
                     return true;
                 } catch (Exception e) {
                     // Silent fallback to defaults
+                    setDefaultSeparators();
                 }
             }
 
             // Use defaults if extraction fails
-            subElementSeparator = ':';
-            elementSeparator = '+';
-            decimalSeparator = '.';
-            releaseIndicator = '?';
-            reservedSeparator = ' ';
-            terminatorSeparator = '\'';
+            setDefaultSeparators();
             return true;
         }
 
@@ -91,12 +106,7 @@ public class EdifactParser {
         }
 
         // Final fallback to standard EDIFACT separators
-        subElementSeparator = ':';
-        elementSeparator = '+';
-        decimalSeparator = '.';
-        releaseIndicator = '?';
-        reservedSeparator = ' ';
-        terminatorSeparator = '\'';
+        setDefaultSeparators();
 
         return true; // Always return true so processing can continue
     }
@@ -162,7 +172,40 @@ public class EdifactParser {
                     inMessage = false;
                 }
             }
-            // Check for MessageForwarder INFO logs containing EDIFACT messages
+            // Check for start of EDIFACT message with $STX$UNB (no UNA header, use default separators)
+            else if (line.contains("$STX$UNB")) {
+                if (debugMode && debugLogger != null) {
+                    int unbIndex = line.indexOf("$STX$UNB");
+                    String debugLine = line.substring(unbIndex);
+                    debugLogger.accept("[Line " + lineNumber + "] Found potential message start with $STX$UNB: " + debugLine.substring(0, Math.min(debugLine.length(), 200)));
+                }
+
+                // Save previous message if exists
+                if (currentEdifactMessage != null && currentMessage.length() > 0) {
+                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
+                    foundMessages++;
+                }
+
+                // Start new message with default separators (no UNA segment)
+                String unbLine = line.substring(line.indexOf("$STX") + 4);
+                setDefaultSeparators(); // Use default EDIFACT separators for UNB messages
+
+                currentMessage = new StringBuilder();
+                currentEdifactMessage = new EdifactMessage();
+                currentUnaSegment = null; // No UNA segment for UNB messages
+                inMessage = true;
+
+                // Process the embedded EDIFACT message within the UNB line
+                if (unbLine.length() > 0) {
+                    processEmbeddedEdifactMessage(unbLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
+                    // Reset after processing embedded message
+                    currentMessage = new StringBuilder();
+                    currentEdifactMessage = null;
+                    currentUnaSegment = null;
+                    inMessage = false;
+                }
+            }
+            // Check for MessageForwarder INFO logs containing EDIFACT messages (with UNA headers)
             else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR") &&
                     line.contains("Message body [UNA:")) {
 
@@ -199,7 +242,43 @@ public class EdifactParser {
                     inMessage = false;
                 }
             }
-            // Check for WARN logs with "Failed to parse API message" containing EDIFACT
+            // Check for MessageForwarder INFO logs containing EDIFACT messages (with UNB headers - no UNA)
+            else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR") &&
+                    line.contains("Message body [UNB")) {
+
+                // Save previous message if exists
+                if (currentEdifactMessage != null && currentMessage.length() > 0) {
+                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
+                    foundMessages++;
+                }
+
+                // Extract EDIFACT content from MessageForwarder log
+                int messageBodyStart = line.indexOf("Message body [");
+                if (messageBodyStart != -1) {
+                    String edifactContent = line.substring(messageBodyStart + "Message body [".length());
+                    if (edifactContent.endsWith("]")) {
+                        edifactContent = edifactContent.substring(0, edifactContent.length() - 1);
+                    }
+
+                    // Use default separators for UNB messages (no UNA header)
+                    setDefaultSeparators();
+
+                    currentMessage = new StringBuilder();
+                    currentEdifactMessage = new EdifactMessage();
+                    currentEdifactMessage.setMessageType("OUTPUT");
+                    currentUnaSegment = null; // No UNA segment for UNB messages
+                    inMessage = true;
+
+                    // Process the MessageForwarder EDIFACT content
+                    processMessageForwarderEdifact(edifactContent, currentMessage, currentEdifactMessage, messages, targetFlightNumber,false,null);
+                    // Reset after processing MessageForwarder message
+                    currentMessage = new StringBuilder();
+                    currentEdifactMessage = null;
+                    currentUnaSegment = null;
+                    inMessage = false;
+                }
+            }
+            // Check for WARN logs with "Failed to parse API message" containing EDIFACT with UNA headers
             else if (line.contains("Failed to parse API message") && line.contains("[UNA:")) {
 
                 // Save previous message if exists
@@ -230,6 +309,42 @@ public class EdifactParser {
 
                     if (unaParseSuccess && unaLine.length() > 9) {
                         processEmbeddedEdifactMessage(unaLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
+                        // Reset after processing embedded message
+                        currentMessage = new StringBuilder();
+                        currentEdifactMessage = null;
+                        currentUnaSegment = null;
+                        inMessage = false;
+                    }
+                }
+            }
+            // Check for WARN logs with "Failed to parse API message" containing EDIFACT with UNB headers (no UNA)
+            else if (line.contains("Failed to parse API message") && line.contains("[UNB")) {
+
+                // Save previous message if exists
+                if (currentEdifactMessage != null && currentMessage.length() > 0) {
+                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
+                    foundMessages++;
+                }
+
+                // Extract UNB part from the log message
+                int unbStartIndex = line.indexOf("[UNB");
+                if (unbStartIndex != -1) {
+                    String unbLine = line.substring(unbStartIndex + 1);
+                    // Remove closing bracket if present
+                    if (unbLine.endsWith("]")) {
+                        unbLine = unbLine.substring(0, unbLine.length() - 1);
+                    }
+
+                    // Use default separators for UNB messages
+                    setDefaultSeparators();
+
+                    currentMessage = new StringBuilder();
+                    currentEdifactMessage = new EdifactMessage();
+                    currentUnaSegment = null; // No UNA segment for UNB messages
+                    inMessage = true;
+
+                    if (unbLine.length() > 0) {
+                        processEmbeddedEdifactMessage(unbLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
                         // Reset after processing embedded message
                         currentMessage = new StringBuilder();
                         currentEdifactMessage = null;
