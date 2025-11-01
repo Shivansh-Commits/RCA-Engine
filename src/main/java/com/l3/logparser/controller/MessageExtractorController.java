@@ -20,6 +20,7 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.net.URL;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -36,7 +37,7 @@ public class MessageExtractorController implements Initializable {
     @FXML private TextField logDirectoryField;
     @FXML private Button browseButton;
     @FXML private TextField flightNumberField;
-    @FXML private TextField departureDateField;
+    @FXML private DatePicker departureDatePicker;
     @FXML private TextField departureAirportField;
     @FXML private TextField arrivalAirportField;
     @FXML private ComboBox<DataType> dataTypeComboBox;
@@ -135,16 +136,49 @@ public class MessageExtractorController implements Initializable {
         statusLabel.setText("Ready");
 
         // Set placeholder text
-        departureDateField.setPromptText("YYMMDD (e.g., 250814)");
         flightNumberField.setPromptText("e.g., MS775");
         departureAirportField.setPromptText("e.g., CAI");
         arrivalAirportField.setPromptText("e.g., DUB");
+        departureDatePicker.setPromptText("Select departure date");
     }
 
     private void setupDataTypeComboBox() {
         dataTypeComboBox.setItems(FXCollections.observableArrayList(DataType.values()));
         dataTypeComboBox.setValue(DataType.API); // Default to API for backward compatibility
         dataTypeComboBox.setPromptText("Select data type to extract");
+    }
+
+    /**
+     * Converts LocalDate to the appropriate format based on DataType
+     * @param date The LocalDate from the DatePicker
+     * @param dataType The selected DataType (API or PNR)
+     * @return Formatted date string: YYMMDD for API, DDMMYY for PNR
+     */
+    private String formatDateForDataType(LocalDate date, DataType dataType) {
+        if (date == null) {
+            return "";
+        }
+
+        DateTimeFormatter apiFormatter = DateTimeFormatter.ofPattern("yyMMdd");  // YYMMDD format for API
+        DateTimeFormatter pnrFormatter = DateTimeFormatter.ofPattern("ddMMyy");  // DDMMYY format for PNR
+
+        switch (dataType) {
+            case API:
+                return date.format(apiFormatter);
+            case PNR:
+                return date.format(pnrFormatter);
+            default:
+                return date.format(apiFormatter); // Default to API format
+        }
+    }
+
+    /**
+     * Validates if the selected date is not null
+     * @param date The LocalDate from the DatePicker
+     * @return true if date is valid, false otherwise
+     */
+    private boolean isValidDate(LocalDate date) {
+        return date != null;
     }
 
     @FXML
@@ -173,7 +207,7 @@ public class MessageExtractorController implements Initializable {
     private void onProcessLogs() {
         String logDirectory = logDirectoryField.getText().trim();
         String flightNumber = flightNumberField.getText().trim();
-        String departureDate = departureDateField.getText().trim();
+        LocalDate selectedDate = departureDatePicker.getValue();
         String departureAirport = departureAirportField.getText().trim();
         String arrivalAirport = arrivalAirportField.getText().trim();
         DataType selectedDataType = dataTypeComboBox.getValue();
@@ -188,10 +222,19 @@ public class MessageExtractorController implements Initializable {
             return;
         }
 
+        if (!isValidDate(selectedDate)) {
+            showAlert("Error", "Please select a departure date");
+            return;
+        }
+
         if (selectedDataType == null) {
             showAlert("Error", "Please select a data type to extract");
             return;
         }
+
+        // Convert date to appropriate format based on data type
+        String formattedDate = formatDateForDataType(selectedDate, selectedDataType);
+        addLogMessage("Selected date: " + selectedDate + " formatted as: " + formattedDate + " for " + selectedDataType.getDisplayName());
 
         // Clear previous results
         clearResults();
@@ -203,7 +246,7 @@ public class MessageExtractorController implements Initializable {
                 if (selectedDataType == DataType.PNR) {
                     // Use PNR service for proper filtering and analysis
                     PnrExtractionService.PnrExtractionResult pnrResult = pnrExtractionService.extractPnrMessages(
-                        logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport);
+                        logDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport);
 
                     // Convert PNR result to generic result format
                     MessageExtractionService.ExtractionResult genericResult =
@@ -227,7 +270,7 @@ public class MessageExtractorController implements Initializable {
                 } else {
                     // Use generic service for other data types
                     return messageExtractionService.extractMessages(
-                        logDirectory, flightNumber, departureDate, departureAirport, arrivalAirport, selectedDataType,
+                        logDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport, selectedDataType,
                         debugMode, (msg) -> Platform.runLater(() -> addLogMessage(msg)));
                 }
             }
@@ -269,7 +312,7 @@ public class MessageExtractorController implements Initializable {
         // Clear all input fields
         logDirectoryField.clear();
         flightNumberField.clear();
-        departureDateField.clear();
+        departureDatePicker.setValue(null);
         departureAirportField.clear();
         arrivalAirportField.clear();
         outputDirectoryField.clear();
