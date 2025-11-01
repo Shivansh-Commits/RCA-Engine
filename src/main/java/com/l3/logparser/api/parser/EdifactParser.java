@@ -150,7 +150,7 @@ public class EdifactParser {
                 }
 
                 // Start new message
-                String unaLine = line.substring(line.indexOf("$STX") + 4);
+                String unaLine = line.substring(line.indexOf("$STX$") + 5);
                 boolean unaParseSuccess = parseUNA(unaLine);
 
                 // Store UNA segment for this message
@@ -187,7 +187,7 @@ public class EdifactParser {
                 }
 
                 // Start new message with default separators (no UNA segment)
-                String unbLine = line.substring(line.indexOf("$STX") + 4);
+                String unbLine = line.substring(line.indexOf("$STX$") + 5);
                 setDefaultSeparators(); // Use default EDIFACT separators for UNB messages
 
                 currentMessage = new StringBuilder();
@@ -207,7 +207,7 @@ public class EdifactParser {
             }
             // Check for MessageForwarder INFO logs containing EDIFACT messages (with UNA headers)
             else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR") &&
-                    line.contains("Message body [UNA:")) {
+                    line.contains("Message body [UNA")) {
 
                 // Save previous message if exists
                 if (currentEdifactMessage != null && currentMessage.length() > 0) {
@@ -279,7 +279,7 @@ public class EdifactParser {
                 }
             }
             // Check for WARN logs with "Failed to parse API message" containing EDIFACT with UNA headers
-            else if (line.contains("Failed to parse API message") && line.contains("[UNA:")) {
+            else if (line.contains("Failed to parse API message") && line.contains("[UNA")) {
 
                 // Save previous message if exists
                 if (currentEdifactMessage != null && currentMessage.length() > 0) {
@@ -288,7 +288,7 @@ public class EdifactParser {
                 }
 
                 // Extract UNA part from the log message
-                int unaStartIndex = line.indexOf("[UNA:");
+                int unaStartIndex = line.indexOf("[UNA");
                 if (unaStartIndex != -1) {
                     String unaLine = line.substring(unaStartIndex + 1);
                     // Remove closing bracket if present
@@ -392,7 +392,7 @@ public class EdifactParser {
                 }
             }
             // Check for standalone UNA line
-            else if (line.startsWith("UNA:") && !inMessage) {
+            else if (line.startsWith("UNA") && !inMessage) {
                 if (debugMode && debugLogger != null) {
                     debugLogger.accept("[Line " + lineNumber + "] Found standalone UNA segment: " + line.substring(0, Math.min(line.length(), 200)));
                 }
