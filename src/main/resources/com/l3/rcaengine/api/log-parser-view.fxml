@@ -135,14 +135,23 @@
         </SplitPane>
     </center>
     <top>
-        <HBox alignment="CENTER" prefHeight="49.0" prefWidth="1026.0" BorderPane.alignment="CENTER">
+        <HBox nodeOrientation="LEFT_TO_RIGHT" prefHeight="56.0" prefWidth="1026.0" spacing="15.0" BorderPane.alignment="CENTER_LEFT">
             <children>
                 <ImageView fitHeight="31.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
                     <image>
                         <Image url="@../../../../images/idhmYHKKeL_1759401346656.jpeg" />
                     </image>
                 </ImageView>
+            <VBox nodeOrientation="LEFT_TO_RIGHT" spacing="2.0">
+               <children>
+                  <Label styleClass="header-label" text="Log Parser Module" textFill="WHITE" />
+                  <Label style="-fx-text-fill: rgba(255, 255, 255, 0.7); -fx-font-size: 12px;" text="Extract flight Input / Output parts" />
+               </children>
+            </VBox>
             </children>
+         <padding>
+            <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />
+         </padding>
         </HBox>
     </top>
 </BorderPane>

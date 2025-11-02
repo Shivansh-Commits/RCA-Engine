@@ -15,7 +15,7 @@
             <Insets bottom="30.0" left="30.0" right="30.0" top="10.0" />
          </padding>
          <children>
-            <Button mnemonicParsing="false" prefHeight="62.0" prefWidth="345.0" stylesheets="@launcher-styles.css" text="Log Extraction Engine" textFill="WHITE">
+            <Button fx:id="logExtractionButton" mnemonicParsing="false" onAction="#openLogExtractionModule" prefHeight="62.0" prefWidth="345.0" stylesheets="@launcher-styles.css" text="Log Extraction Engine" textFill="WHITE">
                <padding>
                   <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
                </padding>
