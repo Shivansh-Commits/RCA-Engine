@@ -19,14 +19,19 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.function.Consumer;
+
 
 /**
  * Controller for the Message Extractor UI
@@ -47,6 +52,7 @@ public class MessageExtractorController implements Initializable {
     @FXML private TextField outputDirectoryField;
     @FXML private Button browseOutputButton;
     @FXML private ToggleButton debugToggleButton;
+    @FXML private ToggleButton multiNodeToggleButton;
 
     // Results area
     @FXML private TableView<MessageTableRow> resultsTable;
@@ -68,6 +74,7 @@ public class MessageExtractorController implements Initializable {
     private PnrExtractionService pnrExtractionService;
     private MessageExtractionService.ExtractionResult lastResult;
     private boolean debugMode = false;
+    private boolean multiNodeMode = false;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -88,6 +95,18 @@ public class MessageExtractorController implements Initializable {
         } else {
             debugToggleButton.setText("OFF");
             addLogMessage("Debug mode disabled.");
+        }
+    }
+
+    @FXML
+    private void onMultiNodeToggle() {
+        multiNodeMode = multiNodeToggleButton.isSelected();
+        if (multiNodeMode) {
+            multiNodeToggleButton.setText("Multi-node ON");
+            addLogMessage("Multi-Node mode enabled.");
+        } else {
+            multiNodeToggleButton.setText("Multi-node OFF");
+            addLogMessage("Multi-Node mode disabled.");
         }
     }
 
@@ -232,6 +251,20 @@ public class MessageExtractorController implements Initializable {
             return;
         }
 
+        // Handle multi-node mode: consolidate logs if enabled
+        String actualLogDirectory = logDirectory;
+        if (multiNodeMode) {
+            addLogMessage("Multi-node mode is enabled. Consolidating logs from n1, n2, n3 folders...");
+            String consolidatedPath = consolidateMultiNodeLogs(logDirectory);
+            if (consolidatedPath != null) {
+                actualLogDirectory = consolidatedPath;
+                addLogMessage("Using consolidated logs directory: " + actualLogDirectory);
+            } else {
+                showAlert("Error", "Failed to consolidate multi-node logs. Please check that n1, n2, n3 folders exist in the selected directory.");
+                return;
+            }
+        }
+
         // Convert date to appropriate format based on data type
         String formattedDate = formatDateForDataType(selectedDate, selectedDataType);
         addLogMessage("Selected date: " + selectedDate + " formatted as: " + formattedDate + " for " + selectedDataType.getDisplayName());
@@ -240,13 +273,14 @@ public class MessageExtractorController implements Initializable {
         clearResults();
 
         // Create and run extraction task
+        final String finalLogDirectory = actualLogDirectory;
         Task<MessageExtractionService.ExtractionResult> task = new Task<MessageExtractionService.ExtractionResult>() {
             @Override
             protected MessageExtractionService.ExtractionResult call() throws Exception {
                 if (selectedDataType == DataType.PNR) {
                     // Use PNR service for proper filtering and analysis
                     PnrExtractionService.PnrExtractionResult pnrResult = pnrExtractionService.extractPnrMessages(
-                        logDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport);
+                        finalLogDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport);
 
                     // Convert PNR result to generic result format
                     MessageExtractionService.ExtractionResult genericResult =
@@ -270,7 +304,7 @@ public class MessageExtractorController implements Initializable {
                 } else {
                     // Use generic service for other data types
                     return messageExtractionService.extractMessages(
-                        logDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport, selectedDataType,
+                        finalLogDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport, selectedDataType,
                         debugMode, (msg) -> Platform.runLater(() -> addLogMessage(msg)));
                 }
             }
@@ -305,6 +339,121 @@ public class MessageExtractorController implements Initializable {
         Thread thread = new Thread(task);
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /**
+     * Consolidates logs from n1, n2, n3 folders into a single consolidated logs directory
+     * @param baseDirectory The directory containing n1, n2, n3 folders
+     * @return The path to the consolidated logs directory, or null if consolidation failed
+     */
+    private String consolidateMultiNodeLogs(String baseDirectory) {
+        try {
+            Path basePath = Paths.get(baseDirectory);
+            Path consolidatedPath = basePath.resolve("consolidated logs");
+
+            // Create consolidated logs directory if it doesn't exist
+            if (!Files.exists(consolidatedPath)) {
+                Files.createDirectories(consolidatedPath);
+                addLogMessage("Created consolidated logs directory: " + consolidatedPath);
+            } else {
+                // Clear existing consolidated logs to ensure fresh consolidation
+                try (var stream = Files.walk(consolidatedPath)) {
+                    stream.filter(Files::isRegularFile)
+                          .forEach(file -> {
+                              try {
+                                  Files.delete(file);
+                              } catch (IOException e) {
+                                  addLogMessage("Warning: Could not delete existing file: " + file.getFileName());
+                              }
+                          });
+                }
+                addLogMessage("Cleared existing consolidated logs directory");
+            }
+
+            String[] nodeNames = {"n1", "n2", "n3"};
+            int totalFilesCopied = 0;
+
+            for (String nodeName : nodeNames) {
+                Path nodePath = basePath.resolve(nodeName);
+                if (Files.exists(nodePath) && Files.isDirectory(nodePath)) {
+                    addLogMessage("Processing node: " + nodeName);
+                    int nodeFileCount = consolidateNodeLogs(nodePath, consolidatedPath, nodeName);
+                    totalFilesCopied += nodeFileCount;
+                    addLogMessage("Copied " + nodeFileCount + " files from " + nodeName);
+                } else {
+                    addLogMessage("Warning: Node directory not found: " + nodePath);
+                }
+            }
+
+            if (totalFilesCopied > 0) {
+                addLogMessage("Successfully consolidated " + totalFilesCopied + " log files from multiple nodes");
+                return consolidatedPath.toString();
+            } else {
+                addLogMessage("No log files found to consolidate");
+                return null;
+            }
+
+        } catch (IOException e) {
+            addLogMessage("Error consolidating multi-node logs: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Consolidates log files from a single node directory
+     * @param nodePath Path to the node directory (n1, n2, or n3)
+     * @param consolidatedPath Path to the consolidated logs directory
+     * @param nodeName Name of the node (n1, n2, or n3)
+     * @return Number of files copied
+     */
+    private int consolidateNodeLogs(Path nodePath, Path consolidatedPath, String nodeName) throws IOException {
+        int fileCount = 0;
+
+        try (var stream = Files.walk(nodePath)) {
+            var logFiles = stream
+                .filter(Files::isRegularFile)
+                .filter(file -> {
+                    String fileName = file.getFileName().toString().toLowerCase();
+                    return fileName.startsWith("das.log") ||
+                           fileName.startsWith("messagetypeb.log") ||
+                           fileName.startsWith("messageapi.log") ||
+                           fileName.startsWith("messageforwarder.log") ||
+                           fileName.startsWith("messagemhpnrgov.log");
+                })
+                .toList();
+
+            for (Path logFile : logFiles) {
+                String originalFileName = logFile.getFileName().toString();
+
+                // Handle log files which may have extensions like .log.1, .log.2 etc. or just .log
+                String nameWithoutExtension;
+                String extension;
+
+                int lastDotIndex = originalFileName.lastIndexOf('.');
+                if (lastDotIndex > 0) {
+                    nameWithoutExtension = originalFileName.substring(0, lastDotIndex);
+                    extension = originalFileName.substring(lastDotIndex);
+                } else {
+                    // No extension found
+                    nameWithoutExtension = originalFileName;
+                    extension = "";
+                }
+
+                // Append node name to the filename
+                String newFileName = nameWithoutExtension + "_" + nodeName + extension;
+                Path targetFile = consolidatedPath.resolve(newFileName);
+
+                // Copy file to consolidated directory with new name
+                Files.copy(logFile, targetFile, StandardCopyOption.REPLACE_EXISTING);
+                fileCount++;
+
+                if (debugMode) {
+                    addLogMessage("Copied: " + originalFileName + " -> " + newFileName);
+                }
+            }
+        }
+
+        return fileCount;
     }
 
     @FXML
@@ -461,7 +610,7 @@ public class MessageExtractorController implements Initializable {
                     // Then sort by part number
                     return Integer.compare(m1.getPartNumber(), m2.getPartNumber());
                 })
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
 
         // Populate results table with sorted messages
         ObservableList<MessageTableRow> tableData = FXCollections.observableArrayList();

@@ -34,10 +34,14 @@
                                     <children>
                                         <Label minWidth="120.0" text="Log Directory :" />
                                         <TextField fx:id="logDirectoryField" HBox.hgrow="ALWAYS" />
-                                        <Button fx:id="browseButton" onAction="#onBrowseLogDirectory" prefHeight="26.0" prefWidth="90.0" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse...">
+                                        <Button fx:id="browseButton" minWidth="90.0" onAction="#onBrowseLogDirectory" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse...">
                                  <tooltip>
                                     <Tooltip text="Only .txt files are valid" />
                                  </tooltip></Button>
+                                        <ToggleButton fx:id="multiNodeToggleButton" minWidth="90.0" onAction="#onMultiNodeToggle" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Multi-node OFF">
+                                 <tooltip>
+                                    <Tooltip text="Enable to process n1, n2, n3 folders" />
+                                 </tooltip></ToggleButton>
                                     </children>
                                 </HBox>
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
@@ -72,7 +76,7 @@
                                     <children>
                                         <Label minWidth="120.0" text="Output Directory:" />
                                         <TextField fx:id="outputDirectoryField" HBox.hgrow="ALWAYS" />
-                                        <Button fx:id="browseOutputButton" onAction="#onBrowseOutputDirectory" prefHeight="26.0" prefWidth="90.0" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse..." />
+                                        <Button fx:id="browseOutputButton" minWidth="90.0" onAction="#onBrowseOutputDirectory" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse..." />
                                     </children>
                                 </HBox>
                             </children>
