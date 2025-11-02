@@ -137,7 +137,7 @@
     <top>
         <HBox nodeOrientation="LEFT_TO_RIGHT" prefHeight="56.0" prefWidth="1026.0" spacing="15.0" BorderPane.alignment="CENTER_LEFT">
             <children>
-                <ImageView fitHeight="31.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
+                <ImageView fitHeight="37.0" fitWidth="88.0" pickOnBounds="true" preserveRatio="true">
                     <image>
                         <Image url="@../../../../images/idhmYHKKeL_1759401346656.jpeg" />
                     </image>
