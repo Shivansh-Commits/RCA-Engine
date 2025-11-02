@@ -1,27 +1,27 @@
 /* Log Parser View Styles */
 #multiNodeToggleButton {
-    -fx-background-color: white;
-    -fx-border-color: #f5a4a4;
-    -fx-text-fill: #8b0000;
-    -fx-font-weight: 600;
-    -fx-border-width: 1px;
-    -fx-border-radius: 4px;
-    -fx-background-radius: 4px;
-    -fx-cursor: hand;
-    -fx-font-size: 12px;
+        -fx-background-color: white;
+                -fx-border-color: #f5a4a4;
+                -fx-text-fill: #8b0000;
+                -fx-font-weight: 600;
+                -fx-border-width: 1px;
+                -fx-border-radius: 4px;
+                -fx-background-radius: 4px;
+                -fx-cursor: hand;
+                -fx-font-size: 12px;
 }
 
 /* Debug Toggle Button - ON state (light green based on #2b3e2b) */
 #multiNodeToggleButton:selected {
-    -fx-background-color: linear-gradient(to bottom, #e8f2e8, #d4e6d4);
-    -fx-border-color: #7db87d;
-    -fx-text-fill: #1a2d1a;
-    -fx-font-weight: 600;
-    -fx-border-width: 1px;
-    -fx-border-radius: 4px;
-    -fx-background-radius: 4px;
-    -fx-cursor: hand;
-    -fx-font-size: 12px;
+        -fx-background-color: linear-gradient(to bottom, #e8f2e8, #d4e6d4);
+                -fx-border-color: #7db87d;
+                -fx-text-fill: #1a2d1a;
+                -fx-font-weight: 600;
+                -fx-border-width: 1px;
+                -fx-border-radius: 4px;
+                -fx-background-radius: 4px;
+                -fx-cursor: hand;
+                -fx-font-size: 12px;
 }
 
 /* Debug Toggle Button - Hover effects */
@@ -31,8 +31,8 @@
 }
 
 #multiNodeToggleButton:selected:hover {
-    -fx-background-color: linear-gradient(to bottom, #d4e6d4, #c3dcc3);
-    -fx-border-color: #6ba86b;
+        -fx-background-color: linear-gradient(to bottom, #d4e6d4, #c3dcc3);
+        -fx-border-color: #6ba86b;
 }
 
 /* Debug Toggle Button - OFF state (lighter version of #2b3e2b theme) */

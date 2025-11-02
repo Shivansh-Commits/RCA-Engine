@@ -74,7 +74,7 @@ public class MessageExtractorController implements Initializable {
     private PnrExtractionService pnrExtractionService;
     private MessageExtractionService.ExtractionResult lastResult;
     private boolean debugMode = false;
-    private boolean multiNodeMode = false;
+    private boolean multiNodeMode = true;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -159,6 +159,9 @@ public class MessageExtractorController implements Initializable {
         departureAirportField.setPromptText("e.g., CAI");
         arrivalAirportField.setPromptText("e.g., DUB");
         departureDatePicker.setPromptText("Select departure date");
+
+        // Initialize multi-node toggle to ON by default
+        multiNodeToggleButton.setSelected(true);
     }
 
     private void setupDataTypeComboBox() {
