@@ -287,6 +287,10 @@ public class MessageExtractionService {
             boolean inEdifactMessage = false;
 
             while ((line = reader.readLine()) != null) {
+                // ENHANCED FIX: Clean carriage returns that may be appended to lines
+                // This handles scenarios where "\r" is added at end of log lines
+                line = line.replaceAll("[\\r]", "");
+
                 if (line.contains("$STX$UNA") || line.contains("UNA:") ||
                         line.contains("Failed to parse API message")) {
                     if (!buffer.isEmpty()) {

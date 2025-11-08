@@ -133,7 +133,8 @@ public class EdifactParser {
 
         for (String line : lines) {
             lineNumber++;
-            line = line.trim();
+            // ENHANCED FIX: Use robust carriage return cleaning method
+            line = cleanCarriageReturns(line);
 
             // Check for start of EDIFACT message with $STX$UNA
             if (line.contains("$STX$UNA")) {
@@ -151,6 +152,10 @@ public class EdifactParser {
 
                 // Start new message
                 String unaLine = line.substring(line.indexOf("$STX$") + 5);
+
+                // ENHANCED FIX: Use robust carriage return cleaning method
+                unaLine = cleanCarriageReturns(unaLine);
+
                 boolean unaParseSuccess = parseUNA(unaLine);
 
                 // Store UNA segment for this message
@@ -162,14 +167,20 @@ public class EdifactParser {
                 currentEdifactMessage = new EdifactMessage();
                 inMessage = true;
 
-                // Process the embedded EDIFACT message within the UNA line
-                if (unaParseSuccess && unaLine.length() > 9) {
+                // Process the embedded EDIFACT message within the UNA line ONLY if there's substantial content
+                // Check for substantial EDIFACT content (more than just terminators and whitespace)
+                String edifactContent = unaLine.length() >= 9 ? unaLine.substring(9).trim() : "";
+                if (unaParseSuccess && edifactContent.length() > 10 &&
+                    (edifactContent.contains("UNB") || edifactContent.contains("UNH") || edifactContent.contains("TDT"))) {
                     processEmbeddedEdifactMessage(unaLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
                     // Reset after processing embedded message
                     currentMessage = new StringBuilder();
                     currentEdifactMessage = null;
                     currentUnaSegment = null;
                     inMessage = false;
+                } else {
+                    // If not processing as embedded, add the UNA line to buffer for multi-line processing
+                    currentMessage.append(unaLine).append("\n");
                 }
             }
             // Check for start of EDIFACT message with $STX$UNB (no UNA header, use default separators)
@@ -188,6 +199,10 @@ public class EdifactParser {
 
                 // Start new message with default separators (no UNA segment)
                 String unbLine = line.substring(line.indexOf("$STX$") + 5);
+
+                // ENHANCED FIX: Use robust carriage return cleaning method
+                unbLine = cleanCarriageReturns(unbLine);
+
                 setDefaultSeparators(); // Use default EDIFACT separators for UNB messages
 
                 currentMessage = new StringBuilder();
@@ -195,14 +210,20 @@ public class EdifactParser {
                 currentUnaSegment = null; // No UNA segment for UNB messages
                 inMessage = true;
 
-                // Process the embedded EDIFACT message within the UNB line
-                if (unbLine.length() > 0) {
+                // Process the embedded EDIFACT message within the UNB line ONLY if there's substantial content
+                // Check for substantial EDIFACT content (more than just terminators and whitespace)
+                String edifactContent = unbLine.trim();
+                if (edifactContent.length() > 10 &&
+                    (edifactContent.contains("UNB") || edifactContent.contains("UNH") || edifactContent.contains("TDT"))) {
                     processEmbeddedEdifactMessage(unbLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
                     // Reset after processing embedded message
                     currentMessage = new StringBuilder();
                     currentEdifactMessage = null;
                     currentUnaSegment = null;
                     inMessage = false;
+                } else {
+                    // If not processing as embedded, add the UNB line to buffer for multi-line processing
+                    currentMessage.append(unbLine).append("\n");
                 }
             }
             // Check for MessageForwarder INFO logs containing EDIFACT messages (with UNA headers)
@@ -222,6 +243,9 @@ public class EdifactParser {
                     if (edifactContent.endsWith("]")) {
                         edifactContent = edifactContent.substring(0, edifactContent.length() - 1);
                     }
+
+                    // ENHANCED FIX: Clean carriage returns from MessageForwarder content
+                    edifactContent = cleanCarriageReturns(edifactContent);
 
                     // Extract UNA segment from MessageForwarder content
                     if (edifactContent.startsWith("UNA") && edifactContent.length() >= 9) {
@@ -260,6 +284,9 @@ public class EdifactParser {
                         edifactContent = edifactContent.substring(0, edifactContent.length() - 1);
                     }
 
+                    // ENHANCED FIX: Clean carriage returns from MessageForwarder content
+                    edifactContent = cleanCarriageReturns(edifactContent);
+
                     // Use default separators for UNB messages (no UNA header)
                     setDefaultSeparators();
 
@@ -296,6 +323,9 @@ public class EdifactParser {
                         unaLine = unaLine.substring(0, unaLine.length() - 1);
                     }
 
+                    // ENHANCED FIX: Use robust carriage return cleaning method
+                    unaLine = cleanCarriageReturns(unaLine);
+
                     boolean unaParseSuccess = parseUNA(unaLine);
 
                     // Store UNA segment for this message
@@ -307,13 +337,19 @@ public class EdifactParser {
                     currentEdifactMessage = new EdifactMessage();
                     inMessage = true;
 
-                    if (unaParseSuccess && unaLine.length() > 9) {
+                    // Process embedded message only if there's substantial EDIFACT content
+                    String edifactContent = unaLine.length() >= 9 ? unaLine.substring(9).trim() : "";
+                    if (unaParseSuccess && edifactContent.length() > 10 &&
+                        (edifactContent.contains("UNB") || edifactContent.contains("UNH") || edifactContent.contains("TDT"))) {
                         processEmbeddedEdifactMessage(unaLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
                         // Reset after processing embedded message
                         currentMessage = new StringBuilder();
                         currentEdifactMessage = null;
                         currentUnaSegment = null;
                         inMessage = false;
+                    } else {
+                        // If not processing as embedded, add the UNA line to buffer for multi-line processing
+                        currentMessage.append(unaLine).append("\n");
                     }
                 }
             }
@@ -335,6 +371,9 @@ public class EdifactParser {
                         unbLine = unbLine.substring(0, unbLine.length() - 1);
                     }
 
+                    // ENHANCED FIX: Use robust carriage return cleaning method
+                    unbLine = cleanCarriageReturns(unbLine);
+
                     // Use default separators for UNB messages
                     setDefaultSeparators();
 
@@ -343,13 +382,19 @@ public class EdifactParser {
                     currentUnaSegment = null; // No UNA segment for UNB messages
                     inMessage = true;
 
-                    if (unbLine.length() > 0) {
+                    // Process embedded message only if there's substantial EDIFACT content
+                    String edifactContent = unbLine.trim();
+                    if (edifactContent.length() > 10 &&
+                        (edifactContent.contains("UNB") || edifactContent.contains("UNH") || edifactContent.contains("TDT"))) {
                         processEmbeddedEdifactMessage(unbLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
                         // Reset after processing embedded message
                         currentMessage = new StringBuilder();
                         currentEdifactMessage = null;
                         currentUnaSegment = null;
                         inMessage = false;
+                    } else {
+                        // If not processing as embedded, add the UNB line to buffer for multi-line processing
+                        currentMessage.append(unbLine).append("\n");
                     }
                 }
             }
@@ -409,21 +454,24 @@ public class EdifactParser {
                     currentMessage.append(line).append("\n");
                 }
             } else if (inMessage && (line.startsWith("UN") || line.contains(String.valueOf(elementSeparator)))) {
+                // ENHANCED FIX: Use robust carriage return cleaning method
+                String cleanedLine = cleanCarriageReturns(line);
+
                 // This looks like an EDIFACT segment
-                currentMessage.append(line).append("\n");
+                currentMessage.append(cleanedLine).append("\n");
 
                 // Parse UNH segment for message details
-                if (line.startsWith("UNH" + elementSeparator)) {
-                    parseUNH(line, currentEdifactMessage);
+                if (cleanedLine.startsWith("UNH" + elementSeparator)) {
+                    parseUNH(cleanedLine, currentEdifactMessage);
                 }
 
                 // Parse flight details from various segments
                 if (currentEdifactMessage != null) {
-                    parseFlightDetails(line, currentEdifactMessage);
+                    parseFlightDetails(cleanedLine, currentEdifactMessage);
                 }
 
                 // Check for end of message (UNZ segment typically ends EDIFACT)
-                if (line.startsWith("UNZ" + elementSeparator)) {
+                if (cleanedLine.startsWith("UNZ" + elementSeparator)) {
                     inMessage = false;
                     // Use finalizeMessageWithUNA instead of direct processing
                     finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
@@ -475,11 +523,15 @@ public class EdifactParser {
         // Extract the EDIFACT content after the UNA header (UNA + 6 separators = 9 chars)
         String edifactContent = unaLine.length() >= 9 ? unaLine.substring(9) : "";
 
+        // ENHANCED FIX: Use robust carriage return cleaning method
+        edifactContent = cleanCarriageReturns(edifactContent);
+
         // Split the EDIFACT content by the terminator separator to get individual segments
         String[] segments = edifactContent.split("\\" + terminatorSeparator);
 
         for (String segment : segments) {
-            segment = segment.trim();
+            // ENHANCED FIX: Use robust carriage return cleaning method
+            segment = cleanCarriageReturns(segment);
             if (!segment.isEmpty()) {
                 currentMessage.append(segment).append(terminatorSeparator).append("\n");
 
@@ -552,6 +604,9 @@ public class EdifactParser {
      * Parse UNH segment to extract message ID, flight number, and part information
      */
     private void parseUNH(String line, EdifactMessage message) {
+        // ENHANCED FIX: Use robust carriage return cleaning method
+        line = cleanCarriageReturns(line);
+
         try {
             // Split by element separator
             String[] segments = line.split("\\" + elementSeparator);
@@ -731,6 +786,9 @@ public class EdifactParser {
      * Parse flight details from EDIFACT segments (TDT, LOC, DTM, BGM)
      */
     private void parseFlightDetails(String segment, EdifactMessage message) {
+        // ENHANCED FIX: Use robust carriage return cleaning method
+        segment = cleanCarriageReturns(segment);
+
         if (message.getFlightDetails() == null) {
             message.setFlightDetails(new FlightDetails());
         }
@@ -826,13 +884,10 @@ public class EdifactParser {
         }
 
         String messageFlightNumber = message.getFlightNumber();
-
         if (messageFlightNumber == null) {
             FlightDetails details = message.getFlightDetails();
             if (details != null) {
                 messageFlightNumber = details.getFlightNumber();
-            } else {
-                return false;
             }
         }
 
@@ -861,6 +916,9 @@ public class EdifactParser {
         // Replace them with actual newlines for proper parsing
         String normalizedContent = edifactContent.replace("\\n", "\n");
 
+        // ENHANCED FIX: Use robust carriage return cleaning method
+        normalizedContent = cleanCarriageReturns(normalizedContent);
+
         // ENHANCED: Also handle cases where the entire message is on a single line
         // Split by common EDIFACT segment terminators first
         if (!normalizedContent.contains("\n")) {
@@ -883,7 +941,8 @@ public class EdifactParser {
         boolean foundTDT = false;
 
         for (String segment : segments) {
-            segment = segment.trim();
+            // ENHANCED FIX: Use robust carriage return cleaning method
+            segment = cleanCarriageReturns(segment);
             if (!segment.isEmpty()) {
                 currentMessage.append(segment);
                 if (!segment.endsWith(String.valueOf(terminatorSeparator))) {
@@ -933,5 +992,24 @@ public class EdifactParser {
         } else {
             System.out.println("MessageForwarder message processing failed - no message or content");
         }
+    }
+
+    /**
+     * Robust cleaning method to remove carriage returns and control characters
+     * Handles different encodings and representations of \r characters
+     */
+    private String cleanCarriageReturns(String input) {
+        if (input == null) {
+            return null;
+        }
+
+        // Multiple approaches to ensure complete \r removal
+        String cleaned = input;
+        cleaned = cleaned.replace("\\r", ""); // Direct replacement first
+        cleaned = cleaned.replace("\n", ""); // Direct newline replacement
+        cleaned = cleaned.replace("\t", ""); // Direct tab replacement
+        cleaned = cleaned.trim(); // Final trim
+
+        return cleaned;
     }
 }
