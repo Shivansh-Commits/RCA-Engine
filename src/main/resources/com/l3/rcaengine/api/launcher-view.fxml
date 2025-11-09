@@ -8,7 +8,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane stylesheets="@launcher-styles.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.launcher.LauncherController">
+<BorderPane stylesheets="@launcher-styles.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.launcher.LauncherController">
    <center>
       <VBox fx:id="root" alignment="CENTER" prefHeight="342.0" prefWidth="697.0" spacing="30.0">
          <padding>

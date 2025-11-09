@@ -20,7 +20,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="916.0" prefWidth="1025.0" stylesheets="@log-extraction-styles.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logextractor.controller.LogExtractionController">
+<BorderPane prefHeight="916.0" prefWidth="1025.0" stylesheets="@log-extraction-styles.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logextractor.controller.LogExtractionController">
    <bottom>
       <SplitPane dividerPositions="0.5" orientation="VERTICAL" prefHeight="564.0" prefWidth="1026.0" BorderPane.alignment="CENTER">
          <items>

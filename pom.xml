@@ -45,6 +45,13 @@
             <version>2.21.1</version>
         </dependency>
 
+        <!-- SLF4J implementation to fix logging warning -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.36</version>
+        </dependency>
+
         <!-- HTTP client for Azure API calls -->
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>

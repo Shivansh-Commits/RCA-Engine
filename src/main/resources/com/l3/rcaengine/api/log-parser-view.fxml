@@ -21,7 +21,7 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane prefHeight="962.0" prefWidth="1025.0" style="-fx-background-color: #2b3e2b;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logparser.controller.MessageExtractorController">
+<BorderPane prefHeight="962.0" prefWidth="1025.0" style="-fx-background-color: #2b3e2b;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logparser.controller.MessageExtractorController">
     <center>
         <SplitPane dividerPositions="0.4" orientation="VERTICAL">
             <items>
