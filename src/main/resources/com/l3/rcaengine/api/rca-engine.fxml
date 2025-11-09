@@ -23,7 +23,7 @@
 <BorderPane prefHeight="936.0" prefWidth="1345.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.rcaengine.controller.MainController">
     <top>
         <VBox prefHeight="136.0" prefWidth="1278.0">
-         <BorderPane prefHeight="32.0" prefWidth="1278.0" styleClass="header_borderpane" stylesheets="@MainView.css">
+         <BorderPane prefHeight="32.0" prefWidth="1278.0" styleClass="header_borderpane" stylesheets="@rca-engine.css">
             <center>
                <ImageView fitHeight="29.0" fitWidth="171.0" pickOnBounds="true" preserveRatio="true" BorderPane.alignment="CENTER">
                   <image>
@@ -35,7 +35,7 @@
                </ImageView>
             </center>
          </BorderPane>
-         <BorderPane styleClass="toolbar_borderpane" stylesheets="@MainView.css">
+         <BorderPane styleClass="toolbar_borderpane" stylesheets="@rca-engine.css">
             <right>
                <HBox BorderPane.alignment="CENTER">
                   <children>
@@ -95,8 +95,8 @@
             <left>
                <VBox prefHeight="115.0" prefWidth="273.0" BorderPane.alignment="CENTER">
                   <children>
-                        <HBox prefHeight="45.0" prefWidth="275.0" spacing="8" styleClass="tool_bar_hbox" stylesheets="@MainView.css">
-                            <ComboBox fx:id="recordTypeComboBox" prefHeight="25.0" prefWidth="123.0" promptText="Record Type" styleClass="tool_bar_dropdown" stylesheets="@MainView.css">
+                        <HBox prefHeight="45.0" prefWidth="275.0" spacing="8" styleClass="tool_bar_hbox" stylesheets="@rca-engine.css">
+                            <ComboBox fx:id="recordTypeComboBox" prefHeight="25.0" prefWidth="123.0" promptText="Record Type" styleClass="tool_bar_dropdown" stylesheets="@rca-engine.css">
                                 <items>
                                     <FXCollections fx:factory="observableArrayList">
                                         <String fx:value="PAX" />
@@ -104,7 +104,7 @@
                                     </FXCollections>
                                 </items>
                             </ComboBox>
-                        <ComboBox fx:id="dataTypeComboBox" minWidth="114.0" prefHeight="25.0" prefWidth="107.0" promptText="Data Type" styleClass="tool_bar_dropdown" stylesheets="@MainView.css">
+                        <ComboBox fx:id="dataTypeComboBox" minWidth="114.0" prefHeight="25.0" prefWidth="107.0" promptText="Data Type" styleClass="tool_bar_dropdown" stylesheets="@rca-engine.css">
                            <items>
                               <FXCollections fx:factory="observableArrayList">
                                  <String fx:value="API" />
@@ -117,7 +117,7 @@
                         </HBox>
                      <HBox fillHeight="false" spacing="8.0">
                         <children>
-                               <Button id="choose_folder_button" fx:id="chooseFolderBtn" minWidth="115.0" styleClass="tool_bar_button" stylesheets="@MainView.css" text="Choose Folder">
+                               <Button id="choose_folder_button" fx:id="chooseFolderBtn" minWidth="115.0" styleClass="tool_bar_button" stylesheets="@rca-engine.css" text="Choose Folder">
                               <cursor>
                                  <Cursor fx:constant="HAND" />
                               </cursor>
@@ -134,8 +134,8 @@
                      </HBox>
                      <HBox spacing="8.0">
                         <children>
-                           <Button fx:id="exportBtn" minWidth="115.0" mnemonicParsing="false" styleClass="tool_bar_button" stylesheets="@MainView.css" text="Export to CSV" />
-                               <Button fx:id="processBtn" minWidth="115.0" styleClass="tool_bar_button" stylesheets="@MainView.css" text="Process">
+                           <Button fx:id="exportBtn" minWidth="115.0" mnemonicParsing="false" styleClass="tool_bar_button" stylesheets="@rca-engine.css" text="Export to CSV" />
+                               <Button fx:id="processBtn" minWidth="115.0" styleClass="tool_bar_button" stylesheets="@rca-engine.css" text="Process">
                               <cursor>
                                  <Cursor fx:constant="HAND" />
                               </cursor>
@@ -152,7 +152,7 @@
                <VBox BorderPane.alignment="CENTER">
                   <children>
             
-                                    <HBox alignment="CENTER" prefHeight="45.0" prefWidth="1278.0" spacing="10" styleClass="tool_bar_hbox" stylesheets="@MainView.css">
+                                    <HBox alignment="CENTER" prefHeight="45.0" prefWidth="1278.0" spacing="10" styleClass="tool_bar_hbox" stylesheets="@rca-engine.css">
                             <Label fx:id="totalInputPassengersLabel" alignment="CENTER" prefHeight="17.0" prefWidth="160.0" text="Total Input Passengers" textFill="WHITE">
                            <font>
                               <Font name="System Bold" size="12.0" />
@@ -187,7 +187,7 @@
                            <Insets bottom="7.0" left="7.0" right="7.0" top="7.0" />
                         </padding>
                         </HBox>
-                     <HBox alignment="CENTER" prefHeight="54.0" prefWidth="1278.0" spacing="10.0" styleClass="tool_bar_hbox" stylesheets="@MainView.css">
+                     <HBox alignment="CENTER" prefHeight="54.0" prefWidth="1278.0" spacing="10.0" styleClass="tool_bar_hbox" stylesheets="@rca-engine.css">
                         <children>
                            <Label fx:id="totalInputPassengersValue" alignment="CENTER" contentDisplay="CENTER" prefHeight="51.0" prefWidth="160.0" text="_____" textFill="WHITE">
                               <font>
@@ -230,7 +230,7 @@
    <center>
       <BorderPane BorderPane.alignment="CENTER">
          <top>
-              <VBox prefHeight="722.0" prefWidth="1278.0" stylesheets="@MainView.css" BorderPane.alignment="CENTER">
+              <VBox prefHeight="722.0" prefWidth="1278.0" stylesheets="@rca-engine.css" BorderPane.alignment="CENTER">
                <HBox alignment="CENTER" maxWidth="1.7976931348623157E308">
                   <children>
                      <VBox alignment="CENTER" maxWidth="1.7976931348623157E308">

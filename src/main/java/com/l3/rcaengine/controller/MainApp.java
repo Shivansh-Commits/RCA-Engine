@@ -10,7 +10,7 @@ public class MainApp extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception {
         // Load main application window directly (splash screen removed)
-        FXMLLoader mainLoader = new FXMLLoader(getClass().getResource("/com/l3/rcaengine/api/MainView.fxml"));
+        FXMLLoader mainLoader = new FXMLLoader(getClass().getResource("/com/l3/rcaengine/api/rca-engine.fxml"));
         Scene mainScene = new Scene(mainLoader.load());
 
         primaryStage.setTitle("L3 Engine");
