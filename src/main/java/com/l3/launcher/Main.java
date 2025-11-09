@@ -21,6 +21,8 @@ public class Main extends Application {
             Scene scene = new Scene(root, 550, 500);
             primaryStage.setTitle("L3 Engine - Module Launcher");
             primaryStage.setScene(scene);
+            primaryStage.setResizable(true);
+            primaryStage.centerOnScreen();
             primaryStage.show();
         } catch (Exception e) {
             e.printStackTrace();

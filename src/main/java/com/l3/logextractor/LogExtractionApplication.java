@@ -16,10 +16,13 @@ public class LogExtractionApplication extends Application {
     @Override
     public void start(Stage primaryStage) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(LogExtractionApplication.class.getResource("/com/l3/rcaengine/api/log-extraction-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
+        Scene scene = new Scene(fxmlLoader.load());
 
         primaryStage.setTitle("L3 Engine - Log Extraction Module");
         primaryStage.setScene(scene);
+        primaryStage.setMaximized(true);
+        primaryStage.setResizable(true);
+        primaryStage.centerOnScreen();
         primaryStage.show();
     }
 
