@@ -1,7 +1,6 @@
 module com.l3.launcher {
     requires javafx.controls;
     requires javafx.fxml;
-    requires org.testng;
 
     // Apache POI modules for Excel generation
     requires org.apache.poi.poi;
