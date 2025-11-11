@@ -2,6 +2,7 @@ package com.l3.logextractor.controller;
 
 import com.l3.logextractor.config.AzureConfig;
 import com.l3.logextractor.model.LogExtractionRequest;
+import com.l3.logextractor.model.LogFileEntry;
 import com.l3.logextractor.model.PipelineRunResult;
 import com.l3.logextractor.service.AzurePipelineService;
 import com.l3.logextractor.service.FileDownloadService;
@@ -80,6 +81,7 @@ public class LogExtractionController implements Initializable {
         setupUI();
         setupTableColumns();
         setupTableSelection();
+        setupInputValidations();
         initializeServices();
         extractedFiles = FXCollections.observableArrayList();
         extractedFilesTable.setItems(extractedFiles);
@@ -128,11 +130,35 @@ public class LogExtractionController implements Initializable {
         });
     }
 
+    private void setupInputValidations() {
+        // Flight number validation - max 8 characters, only alphanumeric and '+'
+        flightNumberField.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null) {
+                // Remove any characters that aren't alphanumeric or '+'
+                String filtered = newValue.replaceAll("[^a-zA-Z0-9+]", "");
+
+                // Limit to 8 characters
+                if (filtered.length() > 8) {
+                    filtered = filtered.substring(0, 8);
+                }
+
+                // Only update if the value changed to avoid infinite loop
+                if (!filtered.equals(newValue)) {
+                    flightNumberField.setText(filtered);
+                }
+            }
+        });
+
+        // Make date field non-editable (only use date picker)
+        incidentDatePicker.getEditor().setDisable(true);
+        incidentDatePicker.getEditor().setOpacity(1);
+    }
+
     private void initializeServices() {
         azureConfig = new AzureConfig();
         pipelineService = new AzurePipelineService(azureConfig);
         fileDownloadService = new FileDownloadService(azureConfig);
-        statusChecker = Executors.newSingleThreadScheduledExecutor();
+        // statusChecker will be created per extraction to avoid reuse issues
     }
 
     @FXML
@@ -145,8 +171,13 @@ public class LogExtractionController implements Initializable {
             return;
         }
 
+        if (flightNumber.length() < 3) {
+            showAlert("Validation Error", "Flight number must be at least 3 characters long.");
+            return;
+        }
+
         if (incidentDate == null) {
-            showAlert("Validation Error", "Please select an incident date.");
+            showAlert("Validation Error", "Please select an incident date using the date picker.");
             return;
         }
 
@@ -205,6 +236,14 @@ public class LogExtractionController implements Initializable {
     }
 
     private void startStatusMonitoring(String runId) {
+        // Shutdown any existing status checker
+        if (statusChecker != null && !statusChecker.isShutdown()) {
+            statusChecker.shutdown();
+        }
+
+        // Create a new status checker for this extraction
+        statusChecker = Executors.newSingleThreadScheduledExecutor();
+
         statusChecker.scheduleWithFixedDelay(() -> {
             PipelineRunResult status = pipelineService.checkPipelineStatus(runId, message ->
                 Platform.runLater(() -> {
@@ -231,13 +270,13 @@ public class LogExtractionController implements Initializable {
 
         if (result.isSuccessful()) {
             statusLabel.setText("Pipeline completed successfully");
-            addLogMessage("Pipeline execution completed. Discovering artifacts...");
+            addLogMessage("Pipeline execution completed. Discovering available artifacts...");
 
-            // Discover actual artifacts from Azure DevOps
-            discoverArtifacts(result);
+            // Discover available artifacts but don't download them yet
+            discoverAvailableArtifacts(result);
 
             downloadAllButton.setDisable(false);
-            summaryLabel.setText("Extraction completed. Discovering artifacts...");
+            summaryLabel.setText("Ready for download. Select output directory and click download.");
         } else {
             statusLabel.setText("Pipeline failed");
             addLogMessage("Pipeline execution failed: " + result.getErrorMessage());
@@ -245,50 +284,60 @@ public class LogExtractionController implements Initializable {
         }
     }
 
-    private void discoverArtifacts(PipelineRunResult result) {
+    private void discoverAvailableArtifacts(PipelineRunResult result) {
         Task<Void> discoveryTask = new Task<Void>() {
             @Override
             protected Void call() throws Exception {
-                addLogMessage("Discovering build artifacts...");
+                addLogMessage("Discovering available artifacts...");
 
-                List<FileDownloadService.ArtifactInfo> artifacts =
-                    fileDownloadService.getArtifacts(result.getRunId(), this::addLogMessage);
+                // Get list of available artifacts without downloading them
+                List<FileDownloadService.ArtifactInfo> artifacts = fileDownloadService.getArtifacts(
+                    result.getRunId(),
+                    this::addLogMessage
+                );
 
                 Platform.runLater(() -> {
                     String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
-                    for (FileDownloadService.ArtifactInfo artifact : artifacts) {
-                        extractedFiles.add(new LogFileEntry(
-                            artifact.getName(),
-                            String.valueOf(artifact.getSize()),
-                            timestamp,
-                            "Available"
-                        ));
-                    }
-
                     if (artifacts.isEmpty()) {
-                        // Fallback to simulated data if no artifacts found
-                        extractedFiles.add(new LogFileEntry(
-                            "application_" + flightNumberField.getText() + ".log",
-                            "2048576",
-                            timestamp,
-                            "Available"
-                        ));
-
-                        extractedFiles.add(new LogFileEntry(
-                            "system_" + flightNumberField.getText() + ".log",
-                            "1048576",
-                            timestamp,
-                            "Available"
-                        ));
-
-                        extractedFiles.add(new LogFileEntry(
-                            "error_" + flightNumberField.getText() + ".log",
-                            "524288",
-                            timestamp,
-                            "Available"
-                        ));
+                        addLogMessage("No artifacts found for this build.");
+                        summaryLabel.setText("No artifacts available for download");
+                        return;
                     }
+
+                    // For each artifact, get the file list and add individual files to the table
+                    for (FileDownloadService.ArtifactInfo artifact : artifacts) {
+                        // Try to get file list from the artifact
+                        List<String> fileNames = getFileNamesFromArtifact(artifact);
+
+                        if (!fileNames.isEmpty()) {
+                            // Add each individual file to the table
+                            for (String fileName : fileNames) {
+                                extractedFiles.add(new LogFileEntry(
+                                    fileName,
+                                    "0", // Size will be updated after download
+                                    timestamp,
+                                    "Available",
+                                    artifact.getDownloadUrl() + "|" + fileName  // Store download URL and specific file name
+                                ));
+                            }
+                            addLogMessage("Found " + fileNames.size() + " files in artifact: " + artifact.getName());
+                        } else {
+                            // Fallback: add the artifact itself
+                            extractedFiles.add(new LogFileEntry(
+                                artifact.getName(),
+                                String.valueOf(artifact.getSize()),
+                                timestamp,
+                                "Available",
+                                artifact.getDownloadUrl()
+                            ));
+                            addLogMessage("Added artifact: " + artifact.getName());
+                        }
+                    }
+
+                    int totalFiles = extractedFiles.size();
+                    addLogMessage("Total files ready for download: " + totalFiles);
+                    summaryLabel.setText("Found " + totalFiles + " files. Select output directory to download.");
                 });
 
                 return null;
@@ -309,6 +358,11 @@ public class LogExtractionController implements Initializable {
 
     @FXML
     private void onClear() {
+        // Shutdown any running status monitoring
+        if (statusChecker != null && !statusChecker.isShutdown()) {
+            statusChecker.shutdown();
+        }
+
         flightNumberField.clear();
         incidentDatePicker.setValue(LocalDate.now());
         extractedFiles.clear();
@@ -319,6 +373,7 @@ public class LogExtractionController implements Initializable {
         progressBar.setVisible(false);
         downloadAllButton.setDisable(true);
         downloadSelectedButton.setDisable(true);
+        extractButton.setDisable(false);
     }
 
     @FXML
@@ -489,6 +544,22 @@ public class LogExtractionController implements Initializable {
         downloadFile(selected, outputDir);
     }
 
+    /**
+     * Get file names from a zip artifact by downloading and inspecting the zip
+     */
+    private List<String> getFileNamesFromArtifact(FileDownloadService.ArtifactInfo artifact) {
+        List<String> fileNames = new java.util.ArrayList<>();
+
+        try {
+            // Get the file names from the artifact using the FileDownloadService
+            fileNames = fileDownloadService.getFileNamesFromArtifact(artifact);
+        } catch (Exception e) {
+            addLogMessage("Could not extract file names from artifact " + artifact.getName() + ": " + e.getMessage());
+        }
+
+        return fileNames;
+    }
+
     private void downloadFile(LogFileEntry fileEntry, String outputDir) {
         Task<Void> downloadTask = new Task<Void>() {
             @Override
@@ -500,24 +571,55 @@ public class LogExtractionController implements Initializable {
 
                 addLogMessage("Starting download: " + fileEntry.getFileName());
 
-                // For real implementation, you would need to get the actual artifact info
-                // This is a simplified version
-                FileDownloadService.ArtifactInfo artifact = new FileDownloadService.ArtifactInfo();
-                artifact.setName(fileEntry.getFileName());
-                artifact.setDownloadUrl(""); // Would be set from the actual artifact discovery
+                try {
+                    String filePath = fileEntry.getFilePath();
+                    String downloadUrl;
+                    String specificFileName = null;
 
-                boolean success = fileDownloadService.downloadArtifact(artifact, outputDir, this::addLogMessage);
-
-                Platform.runLater(() -> {
-                    if (success) {
-                        fileEntry.setStatus("Downloaded");
-                        addLogMessage("Successfully downloaded: " + fileEntry.getFileName());
+                    // Check if this is a specific file within an artifact (contains |)
+                    if (filePath != null && filePath.contains("|")) {
+                        String[] parts = filePath.split("\\|", 2);
+                        downloadUrl = parts[0];
+                        specificFileName = parts[1];
                     } else {
-                        fileEntry.setStatus("Failed");
-                        addLogMessage("Failed to download: " + fileEntry.getFileName());
+                        downloadUrl = filePath;
                     }
-                    extractedFilesTable.refresh();
-                });
+
+                    // Create artifact info from the table entry
+                    FileDownloadService.ArtifactInfo artifact = new FileDownloadService.ArtifactInfo();
+                    artifact.setName(specificFileName != null ? specificFileName : fileEntry.getFileName());
+                    artifact.setDownloadUrl(downloadUrl);
+
+                    try {
+                        artifact.setSize(Long.parseLong(fileEntry.getFileSize()));
+                    } catch (NumberFormatException e) {
+                        artifact.setSize(0);
+                    }
+
+                    // Download the artifact from Azure DevOps
+                    boolean success = fileDownloadService.downloadSpecificFile(artifact, specificFileName, outputDir, this::addLogMessage);
+
+                    Platform.runLater(() -> {
+                        if (success) {
+                            fileEntry.setStatus("Downloaded");
+                            // Update the file path to the local downloaded file location
+                            Path downloadedFile = Paths.get(outputDir).resolve(fileEntry.getFileName());
+                            fileEntry.setFilePath(downloadedFile.toString());
+                            addLogMessage("Successfully downloaded: " + fileEntry.getFileName() + " to " + outputDir);
+                        } else {
+                            fileEntry.setStatus("Failed");
+                            addLogMessage("Failed to download: " + fileEntry.getFileName());
+                        }
+                        extractedFilesTable.refresh();
+                    });
+
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        fileEntry.setStatus("Failed");
+                        addLogMessage("Failed to download " + fileEntry.getFileName() + ": " + e.getMessage());
+                        extractedFilesTable.refresh();
+                    });
+                }
 
                 return null;
             }
@@ -539,27 +641,35 @@ public class LogExtractionController implements Initializable {
         Task<String> previewTask = new Task<String>() {
             @Override
             protected String call() throws Exception {
-                String outputDir = outputDirectoryField.getText();
-                if (!outputDir.isEmpty() && entry.getStatus().equals("Downloaded")) {
-                    // Try to load actual file content if it's been downloaded
-                    String filePath = outputDir + File.separator + entry.getFileName();
-                    if (Files.exists(Paths.get(filePath))) {
-                        return fileDownloadService.getFilePreview(filePath, 50);
+                // If file has been downloaded, try to show actual content
+                if ("Downloaded".equals(entry.getStatus()) && entry.getFilePath() != null && !entry.getFilePath().isEmpty()) {
+                    Path sourceFile = Paths.get(entry.getFilePath());
+                    if (Files.exists(sourceFile)) {
+                        return fileDownloadService.getFilePreview(sourceFile.toString(), 50);
                     }
                 }
 
-                // Fallback to simulated preview
+                // If file is available but not downloaded yet, show info message
+                if ("Available".equals(entry.getStatus())) {
+                    String preview = String.format("=== File Information: %s ===\n", entry.getFileName());
+                    preview += String.format("Flight: %s\n", flightNumberField.getText());
+                    preview += String.format("Date: %s\n", incidentDatePicker.getValue());
+                    preview += String.format("File Size: %s\n", formatFileSize(Long.parseLong(entry.getFileSize())));
+                    preview += "Status: Ready for download\n";
+                    preview += "=================================\n\n";
+                    preview += "This file is available for download from Azure DevOps.\n";
+                    preview += "Please select an output directory and click 'Download Selected' or 'Download All' to download this file.\n";
+                    preview += "Once downloaded, you will be able to preview the actual file content here.";
+                    return preview;
+                }
+
+                // Fallback preview
                 String preview = String.format("=== Preview of %s ===\n", entry.getFileName());
                 preview += String.format("Flight: %s\n", flightNumberField.getText());
                 preview += String.format("Date: %s\n", incidentDatePicker.getValue());
                 preview += "=================================\n";
-                preview += "[File not yet downloaded - showing simulated preview]\n";
-                preview += "2024-11-02 10:30:45 INFO  - Application started\n";
-                preview += "2024-11-02 10:31:12 DEBUG - Processing flight " + flightNumberField.getText() + "\n";
-                preview += "2024-11-02 10:31:45 ERROR - Connection timeout\n";
-                preview += "2024-11-02 10:32:01 INFO  - Retrying connection\n";
-                preview += "2024-11-02 10:32:15 INFO  - Connection restored\n";
-                preview += "...\n";
+                preview += "[File status: " + entry.getStatus() + "]\n";
+                preview += "Unable to load preview for this file.";
 
                 return preview;
             }
@@ -577,6 +687,7 @@ public class LogExtractionController implements Initializable {
         previewThread.setDaemon(true);
         previewThread.start();
     }
+
 
     private void addLogMessage(String message) {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
@@ -598,33 +709,29 @@ public class LogExtractionController implements Initializable {
         alert.showAndWait();
     }
 
-    // Inner class for table data
-    public static class LogFileEntry {
-        private String fileName;
-        private String fileSize;
-        private String extractedTime;
-        private String status;
+    /**
+     * Cleanup method to shutdown resources properly when application closes
+     */
+    public void cleanup() {
+        try {
+            if (statusChecker != null && !statusChecker.isShutdown()) {
+                statusChecker.shutdown();
+                if (!statusChecker.awaitTermination(5, TimeUnit.SECONDS)) {
+                    statusChecker.shutdownNow();
+                }
+            }
 
-        public LogFileEntry(String fileName, String fileSize, String extractedTime, String status) {
-            this.fileName = fileName;
-            this.fileSize = fileSize;
-            this.extractedTime = extractedTime;
-            this.status = status;
+            if (pipelineService != null) {
+                pipelineService.close();
+            }
+
+            if (fileDownloadService != null) {
+                fileDownloadService.close();
+            }
+        } catch (Exception e) {
+            // Log error but don't throw exception during cleanup
+            System.err.println("Error during cleanup: " + e.getMessage());
         }
-
-        // Getters and setters
-        public String getFileName() { return fileName; }
-        public void setFileName(String fileName) { this.fileName = fileName; }
-
-        public String getFileSize() { return fileSize; }
-        public void setFileSize(String fileSize) { this.fileSize = fileSize; }
-
-        public String getExtractedTime() { return extractedTime; }
-        public void setExtractedTime(String extractedTime) { this.extractedTime = extractedTime; }
-
-        public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
     }
-
 
 }

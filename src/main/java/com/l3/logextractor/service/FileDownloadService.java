@@ -3,6 +3,7 @@ package com.l3.logextractor.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.l3.logextractor.config.AzureConfig;
+import com.l3.logextractor.model.ArtifactInfo;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -190,6 +191,133 @@ public class FileDownloadService {
         }
     }
 
+    /**
+     * Download all pipeline artifacts after successful completion
+     * This is the main orchestration method that should be called after pipeline success
+     */
+    public List<Path> downloadPipelineArtifacts(String buildId, String flightNumber, Consumer<String> logCallback) {
+        List<Path> downloadedFiles = new ArrayList<>();
+
+        try {
+            logCallback.accept("Starting artifact discovery and download for build: " + buildId);
+
+            // Step 1: Get list of available artifacts from Azure DevOps
+            List<ArtifactInfo> artifacts = getArtifacts(buildId, logCallback);
+
+            if (artifacts.isEmpty()) {
+                logCallback.accept("No artifacts found for build " + buildId);
+                return downloadedFiles;
+            }
+
+            logCallback.accept("Found " + artifacts.size() + " artifacts to download");
+
+            // Step 2: Create download directory
+            String downloadDir = createDownloadDirectory(flightNumber);
+            logCallback.accept("Download directory: " + downloadDir);
+
+            // Step 3: Download each artifact
+            for (ArtifactInfo artifact : artifacts) {
+                logCallback.accept("Downloading artifact: " + artifact.getName());
+
+                boolean success = downloadArtifact(artifact, downloadDir, logCallback);
+
+                if (success) {
+                    // Step 4: Find and collect downloaded files
+                    List<Path> extractedFiles = findExtractedFiles(downloadDir, artifact.getName(), logCallback);
+                    downloadedFiles.addAll(extractedFiles);
+                } else {
+                    logCallback.accept("Failed to download artifact: " + artifact.getName());
+                }
+            }
+
+            logCallback.accept("Download completed. Total files: " + downloadedFiles.size());
+
+            // Step 5: Log summary of downloaded files
+            for (Path file : downloadedFiles) {
+                logCallback.accept("Downloaded file: " + file.getFileName() + " (" + getFileSize(file) + ")");
+            }
+
+        } catch (Exception e) {
+            logCallback.accept("Error downloading pipeline artifacts: " + e.getMessage());
+        }
+
+        return downloadedFiles;
+    }
+
+    /**
+     * Create a download directory for the flight
+     */
+    private String createDownloadDirectory(String flightNumber) throws IOException {
+        String userHome = System.getProperty("user.home");
+        String downloadDir = String.format("%s/Downloads/L3Engine_Logs/%s_%s",
+            userHome,
+            flightNumber,
+            java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+        );
+
+        Path downloadPath = Paths.get(downloadDir);
+        Files.createDirectories(downloadPath);
+
+        return downloadDir;
+    }
+
+    /**
+     * Find all extracted files from an artifact download
+     */
+    private List<Path> findExtractedFiles(String downloadDir, String artifactName, Consumer<String> logCallback) {
+        List<Path> files = new ArrayList<>();
+
+        try {
+            Path dirPath = Paths.get(downloadDir);
+
+            Files.walk(dirPath)
+                 .filter(Files::isRegularFile)
+                 .filter(path -> isLogFile(path))
+                 .forEach(files::add);
+
+            logCallback.accept("Found " + files.size() + " log files in " + artifactName);
+
+        } catch (Exception e) {
+            logCallback.accept("Error finding extracted files: " + e.getMessage());
+        }
+
+        return files;
+    }
+
+    /**
+     * Check if a file is a log file based on extension or name patterns
+     */
+    private boolean isLogFile(Path file) {
+        String fileName = file.getFileName().toString().toLowerCase();
+        return fileName.endsWith(".log") ||
+               fileName.endsWith(".txt") ||
+               fileName.contains("log") ||
+               fileName.endsWith(".csv") ||
+               fileName.endsWith(".json");
+    }
+
+    /**
+     * Get formatted file size
+     */
+    private String getFileSize(Path file) {
+        try {
+            long bytes = Files.size(file);
+            return formatFileSize(bytes);
+        } catch (Exception e) {
+            return "Unknown size";
+        }
+    }
+
+    /**
+     * Format file size in human readable format
+     */
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        String pre = "KMGTPE".charAt(exp - 1) + "";
+        return String.format("%.1f %sB", bytes / Math.pow(1024, exp), pre);
+    }
+
     private String getEncodedAuth() {
         String auth = ":" + config.getPersonalAccessToken();
         return Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
@@ -197,6 +325,127 @@ public class FileDownloadService {
 
     public void close() throws IOException {
         httpClient.close();
+    }
+
+    /**
+     * Get file names from a zip artifact without downloading the entire artifact
+     */
+    public List<String> getFileNamesFromArtifact(ArtifactInfo artifact) {
+        List<String> fileNames = new ArrayList<>();
+
+        try {
+            HttpGet downloadRequest = new HttpGet(artifact.getDownloadUrl());
+            downloadRequest.setHeader("Authorization", "Basic " + getEncodedAuth());
+
+            ClassicHttpResponse response = httpClient.execute(downloadRequest);
+
+            if (response.getCode() >= 200 && response.getCode() < 300) {
+                HttpEntity entity = response.getEntity();
+
+                // Read the zip file and extract file names
+                try (InputStream inputStream = entity.getContent();
+                     ZipInputStream zis = new ZipInputStream(inputStream)) {
+
+                    ZipEntry zipEntry;
+                    while ((zipEntry = zis.getNextEntry()) != null) {
+                        if (!zipEntry.isDirectory()) {
+                            String fileName = zipEntry.getName();
+                            // Extract just the filename without directory path
+                            if (fileName.contains("/")) {
+                                fileName = fileName.substring(fileName.lastIndexOf("/") + 1);
+                            }
+                            if (fileName.contains("\\")) {
+                                fileName = fileName.substring(fileName.lastIndexOf("\\") + 1);
+                            }
+                            if (!fileName.isEmpty() && isLogFile(Paths.get(fileName))) {
+                                fileNames.add(fileName);
+                            }
+                        }
+                        zis.closeEntry();
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            // If we can't read the zip, return empty list
+        }
+
+        return fileNames;
+    }
+
+    /**
+     * Download a specific file from an artifact
+     */
+    public boolean downloadSpecificFile(ArtifactInfo artifact, String specificFileName, String outputDir, Consumer<String> logCallback) {
+        if (specificFileName == null) {
+            // If no specific file requested, download the entire artifact
+            return downloadArtifact(artifact, outputDir, logCallback);
+        }
+
+        try {
+            logCallback.accept("Downloading specific file: " + specificFileName + " from artifact: " + artifact.getName());
+
+            HttpGet downloadRequest = new HttpGet(artifact.getDownloadUrl());
+            downloadRequest.setHeader("Authorization", "Basic " + getEncodedAuth());
+
+            ClassicHttpResponse response = httpClient.execute(downloadRequest);
+
+            if (response.getCode() >= 200 && response.getCode() < 300) {
+                HttpEntity entity = response.getEntity();
+
+                // Create output directory if it doesn't exist
+                Path outputPath = Paths.get(outputDir);
+                Files.createDirectories(outputPath);
+
+                // Extract only the specific file from the zip
+                try (InputStream inputStream = entity.getContent();
+                     ZipInputStream zis = new ZipInputStream(inputStream)) {
+
+                    ZipEntry zipEntry;
+                    while ((zipEntry = zis.getNextEntry()) != null) {
+                        if (!zipEntry.isDirectory()) {
+                            String fileName = zipEntry.getName();
+                            // Extract just the filename without directory path
+                            String baseFileName = fileName;
+                            if (fileName.contains("/")) {
+                                baseFileName = fileName.substring(fileName.lastIndexOf("/") + 1);
+                            }
+                            if (fileName.contains("\\")) {
+                                baseFileName = fileName.substring(fileName.lastIndexOf("\\") + 1);
+                            }
+
+                            // Check if this is the file we're looking for
+                            if (baseFileName.equals(specificFileName)) {
+                                Path filePath = outputPath.resolve(baseFileName);
+
+                                try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
+                                    byte[] buffer = new byte[1024];
+                                    int length;
+                                    while ((length = zis.read(buffer)) >= 0) {
+                                        fos.write(buffer, 0, length);
+                                    }
+                                }
+
+                                logCallback.accept("Successfully extracted: " + baseFileName);
+                                zis.closeEntry();
+                                return true;
+                            }
+                        }
+                        zis.closeEntry();
+                    }
+                }
+
+                logCallback.accept("File not found in artifact: " + specificFileName);
+                return false;
+            } else {
+                logCallback.accept("Failed to download artifact. Status: " + response.getCode());
+                return false;
+            }
+
+        } catch (Exception e) {
+            logCallback.accept("Error downloading specific file: " + e.getMessage());
+            return false;
+        }
     }
 
     /**
