@@ -85,6 +85,9 @@ public class LogExtractionController implements Initializable {
         initializeServices();
         extractedFiles = FXCollections.observableArrayList();
         extractedFilesTable.setItems(extractedFiles);
+
+        // Show configuration status after UI is fully initialized
+        showConfigurationStatus();
     }
 
     private void setupUI() {
@@ -160,6 +163,19 @@ public class LogExtractionController implements Initializable {
         pipelineService = new AzurePipelineService(azureConfig);
         fileDownloadService = new FileDownloadService(azureConfig);
         // statusChecker will be created per extraction to avoid reuse issues
+    }
+
+    private void showConfigurationStatus() {
+        // Show configuration load status
+        if (azureConfig.configFileExists()) {
+            addLogMessage("Azure configuration loaded from: " + azureConfig.getConfigFileLocation());
+            addLogMessage("Loaded configuration - Organization: " + azureConfig.getOrganization() +
+                         ", Project: " + azureConfig.getProject() +
+                         ", Environment: " + azureConfig.getEnvironment());
+        } else {
+            addLogMessage("No saved configuration found. Using default values.");
+            addLogMessage("Click '⚙ Configure Azure' to set up Azure DevOps connection.");
+        }
     }
 
     @FXML
@@ -400,15 +416,21 @@ public class LogExtractionController implements Initializable {
         grid.setPadding(new Insets(20, 150, 10, 10));
 
         TextField organizationField = new TextField(azureConfig.getOrganization());
+        organizationField.setPrefWidth(250);
         TextField projectField = new TextField(azureConfig.getProject());
+        projectField.setPrefWidth(250);
         TextField pipelineIdField = new TextField(azureConfig.getPipelineId());
+        pipelineIdField.setPrefWidth(250);
         TextField branchField = new TextField(azureConfig.getBranch());
+        branchField.setPrefWidth(250);
         PasswordField tokenField = new PasswordField();
         tokenField.setText(azureConfig.getPersonalAccessToken());
+        tokenField.setPrefWidth(250);
 
         ComboBox<String> environmentField = new ComboBox<>();
         environmentField.getItems().addAll("azure_ci2", "azure_ci5");
         environmentField.setValue(azureConfig.getEnvironment());
+        environmentField.setPrefWidth(250);
 
         grid.add(new Label("Organization:"), 0, 0);
         grid.add(organizationField, 1, 0);
@@ -424,12 +446,16 @@ public class LogExtractionController implements Initializable {
         grid.add(tokenField, 1, 5);
 
         // Add help text
+        String configFileStatus = azureConfig.configFileExists()
+            ? "✅ Configuration file: " + azureConfig.getConfigFileLocation()
+            : "📝 Configuration will be saved to: " + azureConfig.getConfigFileLocation();
+
         Label helpLabel = new Label(
             "Required Token Permissions:\n" +
             "• Build (read and execute)\n" +
             "• Release (read, write, execute and manage)\n\n" +
             "Token can be created at:\n" +
-            "https://dev.azure.com/{organization}/_usersSettings/tokens"
+            "https://dev.azure.com/{organization}/_usersSettings/tokens\n\n"
         );
         helpLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666;");
         grid.add(helpLabel, 0, 6, 2, 1);
@@ -444,10 +470,14 @@ public class LogExtractionController implements Initializable {
         Button testButton = (Button) dialog.getDialogPane().lookupButton(testButtonType);
         testButton.addEventFilter(ActionEvent.ACTION, event -> {
             event.consume(); // Prevent dialog from closing
-            testAzureConfiguration(organizationField.getText().trim(),
-                                 projectField.getText().trim(),
-                                 pipelineIdField.getText().trim(),
-                                 tokenField.getText().trim());
+            testAzureConfiguration(
+                organizationField.getText().trim(),
+                projectField.getText().trim(),
+                pipelineIdField.getText().trim(),
+                branchField.getText().trim(),
+                environmentField.getValue(),
+                tokenField.getText().trim()
+            );
         });
 
         dialog.setResultConverter(dialogButton -> {
@@ -468,7 +498,16 @@ public class LogExtractionController implements Initializable {
                 pipelineService = new AzurePipelineService(azureConfig);
                 fileDownloadService = new FileDownloadService(azureConfig);
 
-                addLogMessage("Azure configuration updated successfully.");
+                // Save configuration to file
+                boolean saved = azureConfig.saveToFile();
+                if (saved) {
+                    addLogMessage("Azure configuration updated and saved successfully.");
+                    addLogMessage("Configuration file: " + azureConfig.getConfigFileLocation());
+                } else {
+                    addLogMessage("Azure configuration updated but could not be saved to file.");
+                    showAlert("Warning", "Configuration was applied but could not be saved to file. Settings will be lost when application restarts.");
+                }
+
                 addLogMessage("Organization: " + azureConfig.getOrganization());
                 addLogMessage("Project: " + azureConfig.getProject());
                 addLogMessage("Pipeline ID: " + azureConfig.getPipelineId());
@@ -481,36 +520,171 @@ public class LogExtractionController implements Initializable {
         dialog.showAndWait();
     }
 
-    private void testAzureConfiguration(String organization, String project, String pipelineId, String token) {
+    private void testAzureConfiguration(String organization, String project, String pipelineId, String branch, String environment, String token) {
         Task<String> testTask = new Task<String>() {
             @Override
             protected String call() throws Exception {
-                // Create temporary config for testing
-                AzureConfig testConfig = new AzureConfig();
-                testConfig.setOrganization(organization);
-                testConfig.setProject(project);
-                testConfig.setPipelineId(pipelineId);
-                testConfig.setPersonalAccessToken(token);
 
-                // Basic validation tests
-                if (organization.isEmpty() || project.isEmpty() || pipelineId.isEmpty() || token.isEmpty()) {
-                    return "❌ Configuration incomplete. Please fill in all fields.";
+                // 1. COMPLETENESS VALIDATION
+                if (organization == null || organization.trim().isEmpty()) {
+                    return "❌ Organization field is required.";
+                }
+                if (project == null || project.trim().isEmpty()) {
+                    return "❌ Project field is required.";
+                }
+                if (pipelineId == null || pipelineId.trim().isEmpty()) {
+                    return "❌ Pipeline ID field is required.";
+                }
+                if (branch == null || branch.trim().isEmpty()) {
+                    return "❌ Branch field is required.";
+                }
+                if (environment == null || environment.trim().isEmpty()) {
+                    return "❌ Environment field is required.";
+                }
+                if (token == null || token.trim().isEmpty()) {
+                    return "❌ Personal Access Token field is required.";
                 }
 
-                if (token.length() < 50) {
-                    return "❌ Personal Access Token appears to be too short. Please verify it's complete.";
+                // Clean the inputs - use new variables to maintain effectively final requirement
+                final String cleanOrg = organization.trim();
+                final String cleanProject = project.trim();
+                final String cleanPipelineId = pipelineId.trim();
+                final String cleanBranch = branch.trim();
+                final String cleanEnvironment = environment.trim();
+                final String cleanToken = token.trim();
+
+                // 2. ORGANIZATION VALIDATION
+                // Filter: Only alphanumeric, hyphens, and underscores
+                // Length: 1-255 characters
+                if (!cleanOrg.matches("^[a-zA-Z0-9-_]+$")) {
+                    return "❌ Organization name invalid.\n" +
+                           "Allowed: Letters, numbers, hyphens (-), underscores (_)\n" +
+                           "Current: Contains invalid characters";
+                }
+                if (cleanOrg.length() < 1 || cleanOrg.length() > 255) {
+                    return "❌ Organization name length invalid.\n" +
+                           "Required: 1-255 characters\n" +
+                           "Current: " + cleanOrg.length() + " characters";
                 }
 
-                return "✅ Configuration appears valid. You can now save and test with actual log extraction.";
+                // 3. PROJECT VALIDATION
+                // Filter: Only alphanumeric, hyphens, underscores, and spaces
+                // Length: 1-64 characters
+                if (!cleanProject.matches("^[a-zA-Z0-9-_ ]+$")) {
+                    return "❌ Project name invalid.\n" +
+                           "Allowed: Letters, numbers, hyphens (-), underscores (_), spaces\n" +
+                           "Current: Contains invalid characters";
+                }
+                if (cleanProject.length() < 1 || cleanProject.length() > 64) {
+                    return "❌ Project name length invalid.\n" +
+                           "Required: 1-64 characters\n" +
+                           "Current: " + cleanProject.length() + " characters";
+                }
+
+                // 4. PIPELINE ID VALIDATION
+                // Filter: Only numeric digits
+                // Length: 1-10 digits
+                if (!cleanPipelineId.matches("^\\d{1,10}$")) {
+                    return "❌ Pipeline ID invalid.\n" +
+                           "Required: Numeric digits only (1-10 digits)\n" +
+                           "Current: '" + cleanPipelineId + "' contains non-numeric characters or wrong length";
+                }
+
+                // 5. BRANCH VALIDATION
+                // Filter: Valid Git branch name format
+                // Length: 1-250 characters
+                // Pattern: No spaces at start/end, no consecutive slashes, valid Git characters
+                if (!cleanBranch.matches("^[a-zA-Z0-9/_.-]+$")) {
+                    return "❌ Branch name invalid.\n" +
+                           "Allowed: Letters, numbers, forward slashes (/), underscores (_), dots (.), hyphens (-)\n" +
+                           "Current: Contains invalid characters";
+                }
+                if (cleanBranch.length() < 1 || cleanBranch.length() > 250) {
+                    return "❌ Branch name length invalid.\n" +
+                           "Required: 1-250 characters\n" +
+                           "Current: " + cleanBranch.length() + " characters";
+                }
+                if (cleanBranch.startsWith("/") || cleanBranch.endsWith("/")) {
+                    return "❌ Branch name invalid.\n" +
+                           "Branch names cannot start or end with forward slash (/)";
+                }
+                if (cleanBranch.contains("//")) {
+                    return "❌ Branch name invalid.\n" +
+                           "Branch names cannot contain consecutive forward slashes (//)";
+                }
+
+                // 6. ENVIRONMENT VALIDATION
+                // Filter: Must be exactly one of the predefined values
+                if (!cleanEnvironment.equals("azure_ci2") && !cleanEnvironment.equals("azure_ci5")) {
+                    return "❌ Environment invalid.\n" +
+                           "Required: Must be either 'azure_ci2' or 'azure_ci5'\n" +
+                           "Current: '" + cleanEnvironment + "'";
+                }
+
+                // 7. PERSONAL ACCESS TOKEN VALIDATION
+                // Azure DevOps supports multiple token formats:
+                // - Legacy tokens: 52 characters
+                // - New tokens: 84-85 characters with "AZDO" signature near the end
+                if (cleanToken.length() == 52) {
+                    // Legacy Azure DevOps token format
+                    if (!cleanToken.matches("^[A-Za-z0-9+/=]+$")) {
+                        return "❌ Personal Access Token format invalid (Legacy 52-char format).\n" +
+                               "Allowed: Letters, numbers, plus (+), forward slash (/), equals (=)\n" +
+                               "Current: Contains invalid characters\n" +
+                               "Note: Ensure you copied the token correctly from Azure DevOps";
+                    }
+                } else if (cleanToken.length() >= 84 && cleanToken.length() <= 85) {
+                    // New Azure DevOps token format with AZDO signature
+                    if (!cleanToken.matches("^[A-Za-z0-9+/=_-]+$")) {
+                        return "❌ Personal Access Token format invalid (New format).\n" +
+                               "Allowed: Letters, numbers, plus (+), forward slash (/), equals (=), underscore (_), hyphen (-)\n" +
+                               "Current: Contains invalid characters\n" +
+                               "Note: Ensure you copied the token correctly from Azure DevOps";
+                    }
+
+                    // Check for AZDO signature - it should be present somewhere in the last part of the token
+                    if (!cleanToken.contains("AZDO")) {
+                        return "❌ Personal Access Token format invalid (New format).\n" +
+                               "Expected: 'AZDO' signature in the token\n" +
+                               "Current: No AZDO signature found\n" +
+                               "Note: This appears to be a corrupted Azure DevOps token";
+                    }
+                } else {
+                    return "❌ Personal Access Token length invalid.\n" +
+                           "Azure DevOps supports these token formats:\n" +
+                           "• Legacy tokens: 52 characters\n" +
+                           "• New tokens: 84-85 characters (with AZDO signature)\n" +
+                           "Current: " + cleanToken.length() + " characters\n" +
+                           "Note: Ensure you copied the complete token from Azure DevOps";
+                }
+
+                // 8. ADDITIONAL CHECKS
+                // Check for common mistakes
+                if (cleanOrg.toLowerCase().contains("http")) {
+                    return "❌ Organization should not contain URLs.\n" +
+                           "Use only the organization name, not the full URL.";
+                }
+
+                String tokenType = cleanToken.length() == 52 ? "Legacy" : "New";
+                return "✅ All configuration fields are valid!\n\n" +
+                       "Validation Results:\n" +
+                       "• Organization: '" + cleanOrg + "' ✓\n" +
+                       "• Project: '" + cleanProject + "' ✓\n" +
+                       "• Pipeline ID: " + cleanPipelineId + " ✓\n" +
+                       "• Branch: '" + cleanBranch + "' ✓\n" +
+                       "• Environment: '" + cleanEnvironment + "' ✓\n" +
+                       "• Personal Access Token: Valid " + tokenType + " format (" + cleanToken.length() + " chars) ✓\n\n" +
+                       "All fields pass format validation.\n" +
+                       "Click 'Save' to store configuration and enable actual pipeline testing.";
             }
         };
 
         testTask.setOnSucceeded(e -> {
-            showAlert("Configuration Test", testTask.getValue());
+            showAlert("Configuration Validation", testTask.getValue());
         });
 
         testTask.setOnFailed(e -> {
-            showAlert("Configuration Test", "❌ Test failed: " + testTask.getException().getMessage());
+            showAlert("Configuration Validation", "❌ Validation failed: " + testTask.getException().getMessage());
         });
 
         Thread testThread = new Thread(testTask);
