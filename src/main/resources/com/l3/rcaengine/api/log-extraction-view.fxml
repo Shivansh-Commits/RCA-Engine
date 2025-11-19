@@ -101,6 +101,7 @@
                                 </children>
                             </VBox>
                             <Region HBox.hgrow="ALWAYS" />
+                            <Label fx:id="versionLabel" style="-fx-text-fill: rgba(255, 255, 255, 0.7); -fx-font-size: 11px;" />
                         </children>
                         <padding>
                             <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />

@@ -7,6 +7,7 @@ import com.l3.logparser.pnr.service.PnrExtractionService;
 import com.l3.logparser.pnr.model.PnrMessage;
 import com.l3.logparser.pnr.model.PnrFlightDetails;
 import com.l3.logparser.enums.DataType;
+import com.l3.common.util.VersionUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -69,6 +70,7 @@ public class MessageExtractorController implements Initializable {
     @FXML private ProgressBar progressBar;
     @FXML private Label statusLabel;
     @FXML private Label summaryLabel;
+    @FXML private Label versionLabel;
 
     private MessageExtractionService messageExtractionService;
     private PnrExtractionService pnrExtractionService;
@@ -84,6 +86,11 @@ public class MessageExtractorController implements Initializable {
         setupTableSelection();
         setupUI();
         setupDataTypeComboBox();
+
+        // Set version label
+        if (versionLabel != null) {
+            versionLabel.setText(VersionUtil.getFormattedVersion());
+        }
     }
 
     @FXML

@@ -6,6 +6,7 @@ import com.l3.logextractor.model.LogFileEntry;
 import com.l3.logextractor.model.PipelineRunResult;
 import com.l3.logextractor.service.AzurePipelineService;
 import com.l3.logextractor.service.FileDownloadService;
+import com.l3.common.util.VersionUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -62,6 +63,7 @@ public class LogExtractionController implements Initializable {
     @FXML private ProgressBar progressBar;
     @FXML private Label statusLabel;
     @FXML private Label summaryLabel;
+    @FXML private Label versionLabel;
 
     // Download controls
     @FXML private Button downloadAllButton;
@@ -96,6 +98,10 @@ public class LogExtractionController implements Initializable {
         statusLabel.setText("Ready");
         progressBar.setVisible(false);
 
+        // Set version label
+        if (versionLabel != null) {
+            versionLabel.setText(VersionUtil.getFormattedVersion());
+        }
 
         // Enable/disable buttons based on state
         downloadAllButton.setDisable(true);

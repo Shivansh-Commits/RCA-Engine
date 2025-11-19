@@ -34,6 +34,9 @@
                   </BorderPane.margin>
                </ImageView>
             </center>
+            <right>
+               <Label fx:id="versionLabel" style="-fx-text-fill: rgba(255, 255, 255, 0.7); -fx-font-size: 11px; -fx-padding: 5 10 0 0;" />
+            </right>
          </BorderPane>
          <BorderPane styleClass="toolbar_borderpane" stylesheets="@rca-engine.css">
             <right>

@@ -5,6 +5,7 @@ import com.l3.rcaengine.api.utils.FileParser;
 import com.l3.rcaengine.api.utils.ParseResult;
 import com.l3.rcaengine.pnr.PnrgovProcessor;
 import com.l3.rcaengine.common.reporting.ExcelReportGenerator;
+import com.l3.common.util.VersionUtil;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.*;
@@ -40,6 +41,7 @@ public class MainController {
     @FXML private Label departureDate;
     @FXML private Label departurePort;
     @FXML private Label arrivalPort;
+    @FXML private Label versionLabel;
     @FXML private ComboBox<String> dataTypeComboBox;
     @FXML private ComboBox<String> recordTypeComboBox;
     @FXML private ListView<String> filesProcessedList;
@@ -91,6 +93,11 @@ public class MainController {
 
     @FXML
     public void initialize() {
+        // Set version label
+        if (versionLabel != null) {
+            versionLabel.setText(VersionUtil.getFormattedVersion());
+        }
+
         inputPaxColNo.setCellValueFactory(c -> new SimpleIntegerProperty(c.getValue().getNo()));
         inputPaxColName.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getName()));
         inputPaxColDTM.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getDtm()));
