@@ -220,6 +220,12 @@ public class MainController {
         departurePort.setText(result.getDepartureAirport());
         arrivalPort.setText(result.getArrivalAirport());
 
+        // Check if flight details are using default values due to extraction failure
+        if ("UNKNOWN".equals(result.getFlightNumber()) || "XXX".equals(result.getDepartureAirport()) || "XXX".equals(result.getArrivalAirport())) {
+            System.out.println("INFO: Flight details could not be fully extracted. Using default values where data was missing.");
+            // The specific warnings are already added to allMissingSegments in FileParser
+        }
+
 
         // Populating Input Pax Table (globalInputPassengers values)
         List<TableRow> rows = new ArrayList<>();
