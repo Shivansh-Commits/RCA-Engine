@@ -93,6 +93,7 @@ public class LogExtractionController implements Initializable {
         statusLabel.setText("Ready");
         progressBar.setVisible(false);
 
+
         // Enable/disable buttons based on state
         downloadAllButton.setDisable(true);
         downloadSelectedButton.setDisable(true);
@@ -165,6 +166,7 @@ public class LogExtractionController implements Initializable {
     private void onExtractLogs() {
         String flightNumber = flightNumberField.getText().trim();
         LocalDate incidentDate = incidentDatePicker.getValue();
+        String environment = azureConfig.getEnvironment();
 
         if (flightNumber.isEmpty()) {
             showAlert("Validation Error", "Please enter a flight number.");
@@ -181,9 +183,14 @@ public class LogExtractionController implements Initializable {
             return;
         }
 
-        // Create extraction request
+        if (environment == null || environment.trim().isEmpty()) {
+            showAlert("Configuration Error", "Please configure the environment in Azure settings (⚙ Configure Azure button).");
+            return;
+        }
+
+        // Create extraction request with environment
         LocalDateTime incidentDateTime = LocalDateTime.of(incidentDate, LocalTime.MIDNIGHT);
-        LogExtractionRequest request = new LogExtractionRequest(flightNumber, incidentDateTime);
+        LogExtractionRequest request = new LogExtractionRequest(flightNumber, incidentDateTime, environment);
 
         // Clear previous results
         extractedFiles.clear();
@@ -399,6 +406,10 @@ public class LogExtractionController implements Initializable {
         PasswordField tokenField = new PasswordField();
         tokenField.setText(azureConfig.getPersonalAccessToken());
 
+        ComboBox<String> environmentField = new ComboBox<>();
+        environmentField.getItems().addAll("azure_ci2", "azure_ci5");
+        environmentField.setValue(azureConfig.getEnvironment());
+
         grid.add(new Label("Organization:"), 0, 0);
         grid.add(organizationField, 1, 0);
         grid.add(new Label("Project:"), 0, 1);
@@ -407,8 +418,10 @@ public class LogExtractionController implements Initializable {
         grid.add(pipelineIdField, 1, 2);
         grid.add(new Label("Branch:"), 0, 3);
         grid.add(branchField, 1, 3);
-        grid.add(new Label("Personal Access Token:"), 0, 4);
-        grid.add(tokenField, 1, 4);
+        grid.add(new Label("Environment:"), 0, 4);
+        grid.add(environmentField, 1, 4);
+        grid.add(new Label("Personal Access Token:"), 0, 5);
+        grid.add(tokenField, 1, 5);
 
         // Add help text
         Label helpLabel = new Label(
@@ -419,7 +432,7 @@ public class LogExtractionController implements Initializable {
             "https://dev.azure.com/{organization}/_usersSettings/tokens"
         );
         helpLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666;");
-        grid.add(helpLabel, 0, 5, 2, 1);
+        grid.add(helpLabel, 0, 6, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -443,6 +456,7 @@ public class LogExtractionController implements Initializable {
                 azureConfig.setProject(projectField.getText().trim());
                 azureConfig.setPipelineId(pipelineIdField.getText().trim());
                 azureConfig.setBranch(branchField.getText().trim());
+                azureConfig.setEnvironment(environmentField.getValue());
                 azureConfig.setPersonalAccessToken(tokenField.getText().trim());
 
                 // Recreate pipeline service with new config
@@ -459,6 +473,7 @@ public class LogExtractionController implements Initializable {
                 addLogMessage("Project: " + azureConfig.getProject());
                 addLogMessage("Pipeline ID: " + azureConfig.getPipelineId());
                 addLogMessage("Branch: " + azureConfig.getBranch());
+                addLogMessage("Environment: " + azureConfig.getEnvironment());
             }
             return null;
         });
@@ -602,10 +617,38 @@ public class LogExtractionController implements Initializable {
                     Platform.runLater(() -> {
                         if (success) {
                             fileEntry.setStatus("Downloaded");
+
+                            // Check if the original file was a .gz file and handle extraction
+                            String originalFileName = fileEntry.getFileName();
+                            String finalFileName = originalFileName;
+                            Path downloadedFile;
+
+                            // If original file was .gz, the actual extracted file will have .gz removed
+                            if (originalFileName.toLowerCase().endsWith(".gz")) {
+                                finalFileName = originalFileName.substring(0, originalFileName.length() - 3);
+                                downloadedFile = Paths.get(outputDir).resolve(finalFileName);
+
+                                // Update the table entry to reflect the extracted file
+                                fileEntry.setFileName(finalFileName);
+                                addLogMessage("File automatically extracted from .gz: " + originalFileName + " -> " + finalFileName);
+                            } else {
+                                downloadedFile = Paths.get(outputDir).resolve(originalFileName);
+                            }
+
                             // Update the file path to the local downloaded file location
-                            Path downloadedFile = Paths.get(outputDir).resolve(fileEntry.getFileName());
                             fileEntry.setFilePath(downloadedFile.toString());
-                            addLogMessage("Successfully downloaded: " + fileEntry.getFileName() + " to " + outputDir);
+
+                            // Update file size if possible
+                            if (Files.exists(downloadedFile)) {
+                                try {
+                                    long newSize = Files.size(downloadedFile);
+                                    fileEntry.setFileSize(String.valueOf(newSize));
+                                } catch (Exception e) {
+                                    // Keep original size if we can't read the new file
+                                }
+                            }
+
+                            addLogMessage("Successfully downloaded: " + finalFileName + " to " + outputDir);
                         } else {
                             fileEntry.setStatus("Failed");
                             addLogMessage("Failed to download: " + fileEntry.getFileName());

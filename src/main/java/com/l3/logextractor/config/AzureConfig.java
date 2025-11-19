@@ -10,6 +10,7 @@ public class AzureConfig {
     private String pipelineId;
     private String personalAccessToken;
     private String branch;
+    private String environment;
 
     public AzureConfig() {
         // Default configuration - can be loaded from properties file
@@ -19,6 +20,7 @@ public class AzureConfig {
         this.pipelineId = "";
         this.personalAccessToken = "";
         this.branch = "";
+        this.environment = "azure_ci2"; // Default environment
     }
 
     // Getters and Setters
@@ -39,6 +41,9 @@ public class AzureConfig {
 
     public String getBranch() { return branch; }
     public void setBranch(String branch) { this.branch = branch; }
+
+    public String getEnvironment() { return environment; }
+    public void setEnvironment(String environment) { this.environment = environment; }
 
     public String getPipelineUrl() {
         return String.format("%s/%s/%s/_apis/pipelines/%s/runs",

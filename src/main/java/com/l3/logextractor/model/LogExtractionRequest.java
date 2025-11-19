@@ -10,16 +10,25 @@ public class LogExtractionRequest {
     private LocalDateTime incidentDate;
     private String requestId;
     private LocalDateTime requestTime;
+    private String environment;
 
     public LogExtractionRequest() {
         this.requestId = generateRequestId();
         this.requestTime = LocalDateTime.now();
+        this.environment = "azure_ci2"; // Default environment
     }
 
     public LogExtractionRequest(String flightNumber, LocalDateTime incidentDate) {
         this();
         this.flightNumber = flightNumber;
         this.incidentDate = incidentDate;
+    }
+
+    public LogExtractionRequest(String flightNumber, LocalDateTime incidentDate, String environment) {
+        this();
+        this.flightNumber = flightNumber;
+        this.incidentDate = incidentDate;
+        this.environment = environment;
     }
 
     private String generateRequestId() {
@@ -39,9 +48,12 @@ public class LogExtractionRequest {
     public LocalDateTime getRequestTime() { return requestTime; }
     public void setRequestTime(LocalDateTime requestTime) { this.requestTime = requestTime; }
 
+    public String getEnvironment() { return environment; }
+    public void setEnvironment(String environment) { this.environment = environment; }
+
     @Override
     public String toString() {
-        return String.format("LogExtractionRequest{flightNumber='%s', incidentDate=%s, requestId='%s'}",
-            flightNumber, incidentDate, requestId);
+        return String.format("LogExtractionRequest{flightNumber='%s', incidentDate=%s, environment='%s', requestId='%s'}",
+            flightNumber, incidentDate, environment, requestId);
     }
 }

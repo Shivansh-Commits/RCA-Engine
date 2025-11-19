@@ -54,6 +54,7 @@ public class AzurePipelineService {
 
             templateParameters.put("flight_number", request.getFlightNumber());
             templateParameters.put("log_date", request.getIncidentDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
+            templateParameters.put("target_env", request.getEnvironment());
 
             requestBody.put("templateParameters", templateParameters);
 

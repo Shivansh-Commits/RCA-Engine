@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Service class for downloading and managing build artifacts from Azure DevOps
@@ -121,6 +122,11 @@ public class FileDownloadService {
                         Path filePath = outputPath.resolve(artifact.getName());
                         Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
                         logCallback.accept("Downloaded: " + artifact.getName());
+
+                        // If the downloaded file is a .gz file, extract it in place
+                        if (filePath.toString().toLowerCase().endsWith(".gz")) {
+                            extractGzipFile(filePath, logCallback);
+                        }
                     }
                 }
 
@@ -160,11 +166,48 @@ public class FileDownloadService {
                     }
 
                     logCallback.accept("Extracted: " + zipEntry.getName());
+
+                    // If the extracted file is a .gz file, extract it in place
+                    if (filePath.toString().toLowerCase().endsWith(".gz")) {
+                        extractGzipFile(filePath, logCallback);
+                    }
                 }
                 zis.closeEntry();
             }
         } catch (Exception e) {
             logCallback.accept("Error extracting zip file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Extract a .gz file in place and remove the .gz file after extraction
+     */
+    private void extractGzipFile(Path gzipFile, Consumer<String> logCallback) {
+        try {
+            String originalFileName = gzipFile.getFileName().toString();
+            String extractedFileName = originalFileName.substring(0, originalFileName.length() - 3); // Remove .gz extension
+            Path extractedFile = gzipFile.getParent().resolve(extractedFileName);
+
+            logCallback.accept("Extracting gzip file: " + originalFileName);
+
+            // Extract the gzip file
+            try (FileInputStream fis = new FileInputStream(gzipFile.toFile());
+                 GZIPInputStream gis = new GZIPInputStream(fis);
+                 FileOutputStream fos = new FileOutputStream(extractedFile.toFile())) {
+
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = gis.read(buffer)) >= 0) {
+                    fos.write(buffer, 0, length);
+                }
+            }
+
+            // Delete the original .gz file after successful extraction
+            Files.delete(gzipFile);
+            logCallback.accept("Successfully extracted and removed .gz file: " + originalFileName + " -> " + extractedFileName);
+
+        } catch (Exception e) {
+            logCallback.accept("Error extracting gzip file " + gzipFile.getFileName() + ": " + e.getMessage());
         }
     }
 
@@ -293,7 +336,8 @@ public class FileDownloadService {
                fileName.endsWith(".txt") ||
                fileName.contains("log") ||
                fileName.endsWith(".csv") ||
-               fileName.endsWith(".json");
+               fileName.endsWith(".json") ||
+               fileName.endsWith(".gz"); // Include .gz files as they often contain compressed logs
     }
 
     /**
@@ -427,6 +471,12 @@ public class FileDownloadService {
                                 }
 
                                 logCallback.accept("Successfully extracted: " + baseFileName);
+
+                                // If the extracted file is a .gz file, extract it in place
+                                if (filePath.toString().toLowerCase().endsWith(".gz")) {
+                                    extractGzipFile(filePath, logCallback);
+                                }
+
                                 zis.closeEntry();
                                 return true;
                             }
