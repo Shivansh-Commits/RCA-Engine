@@ -11,6 +11,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
+import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -58,8 +59,9 @@ public class LauncherController implements Initializable {
     private void openLogParserModule() {
         try {
             MessageExtractorApplication messageExtractorApp = new MessageExtractorApplication();
-            Stage messageExtractorStage = new Stage();
-            messageExtractorApp.start(messageExtractorStage);
+            Stage logParserStage = new Stage();
+            logParserStage.getIcons().add(new Image(getClass().getResourceAsStream("/images/L3_engine_logo.png")));
+            messageExtractorApp.start(logParserStage);
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("Failed to launch Message Extractor Module: " + e.getMessage());
@@ -70,8 +72,9 @@ public class LauncherController implements Initializable {
     private void openDataEngineModule() {
         try {
             MainApp dataEngineApp = new MainApp();
-            Stage dataEngineStage = new Stage();
-            dataEngineApp.start(dataEngineStage);
+            Stage rcaEngineStage = new Stage();
+            rcaEngineStage.getIcons().add(new Image(getClass().getResourceAsStream("/images/L3_engine_logo.png")));
+            dataEngineApp.start(rcaEngineStage);
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("Failed to launch API/PNR Data Engine module: " + e.getMessage());
@@ -83,6 +86,7 @@ public class LauncherController implements Initializable {
         try {
             LogExtractionApplication logExtractionApp = new LogExtractionApplication();
             Stage logExtractionStage = new Stage();
+            logExtractionStage.getIcons().add(new Image(getClass().getResourceAsStream("/images/L3_engine_logo.png")));
             logExtractionApp.start(logExtractionStage);
         } catch (Exception e) {
             e.printStackTrace();
@@ -99,7 +103,6 @@ public class LauncherController implements Initializable {
         Alert helpDialog = new Alert(Alert.AlertType.INFORMATION);
         helpDialog.setTitle("About L3 Engine");
         helpDialog.setHeaderText("L3 Engine - Flight Data Processing Platform");
-
         String helpText = "🚀 L3 Engine Suite - Comprehensive Flight Data Processing Platform\n\n" +
 
                          "PURPOSE:\n" +

@@ -3,6 +3,7 @@ package com.l3.launcher;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
@@ -23,6 +24,7 @@ public class Main extends Application {
             primaryStage.setScene(scene);
             primaryStage.setResizable(true);
             primaryStage.centerOnScreen();
+            primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("/images/L3_engine_logo.png")));
             primaryStage.show();
         } catch (Exception e) {
             e.printStackTrace();
