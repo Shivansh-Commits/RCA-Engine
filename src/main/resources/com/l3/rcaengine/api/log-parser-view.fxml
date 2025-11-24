@@ -3,6 +3,7 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.Separator?>
@@ -33,10 +34,14 @@
                                     <children>
                                         <Label minWidth="120.0" text="Log Directory :" />
                                         <TextField fx:id="logDirectoryField" HBox.hgrow="ALWAYS" />
-                                        <Button fx:id="browseButton" onAction="#onBrowseLogDirectory" prefHeight="26.0" prefWidth="90.0" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse...">
+                                        <Button fx:id="browseButton" minWidth="90.0" onAction="#onBrowseLogDirectory" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse...">
                                  <tooltip>
                                     <Tooltip text="Only .txt files are valid" />
                                  </tooltip></Button>
+                                        <ToggleButton fx:id="multiNodeToggleButton" minWidth="90.0" onAction="#onMultiNodeToggle" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Multi-node ON">
+                                 <tooltip>
+                                    <Tooltip text="Enable to process n1, n2, n3 folders" />
+                                 </tooltip></ToggleButton>
                                     </children>
                                 </HBox>
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
@@ -44,7 +49,7 @@
                                         <Label minWidth="120.0" text="Flight Number : " />
                                         <TextField fx:id="flightNumberField" prefWidth="150.0" />
                                         <Label minWidth="120.0" text="Departure Date:" />
-                                        <TextField fx:id="departureDateField" prefWidth="150.0" />
+                                        <DatePicker fx:id="departureDatePicker" prefWidth="150.0" />
                                     </children>
                                 </HBox>
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
@@ -71,7 +76,7 @@
                                     <children>
                                         <Label minWidth="120.0" text="Output Directory:" />
                                         <TextField fx:id="outputDirectoryField" HBox.hgrow="ALWAYS" />
-                                        <Button fx:id="browseOutputButton" onAction="#onBrowseOutputDirectory" prefHeight="26.0" prefWidth="90.0" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse..." />
+                                        <Button fx:id="browseOutputButton" minWidth="90.0" onAction="#onBrowseOutputDirectory" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse..." />
                                     </children>
                                 </HBox>
                             </children>
@@ -130,14 +135,25 @@
         </SplitPane>
     </center>
     <top>
-        <HBox alignment="CENTER" prefHeight="49.0" prefWidth="1026.0" BorderPane.alignment="CENTER">
+        <HBox alignment="CENTER" nodeOrientation="LEFT_TO_RIGHT" prefHeight="56.0" prefWidth="1026.0" spacing="15.0" BorderPane.alignment="CENTER_LEFT">
             <children>
-                <ImageView fitHeight="31.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
+                <ImageView fitHeight="37.0" fitWidth="88.0" pickOnBounds="true" preserveRatio="true">
                     <image>
                         <Image url="@../../../../images/idhmYHKKeL_1759401346656.jpeg" />
                     </image>
                 </ImageView>
+            <VBox nodeOrientation="LEFT_TO_RIGHT" spacing="2.0">
+               <children>
+                  <Label styleClass="header-label" text="Log Parser Module" textFill="WHITE" />
+                  <Label style="-fx-text-fill: rgba(255, 255, 255, 0.7); -fx-font-size: 12px;" text="Extract flight Input / Output parts" />
+               </children>
+            </VBox>
+                <Region HBox.hgrow="ALWAYS" />
+                <Label fx:id="versionLabel" style="-fx-text-fill: rgba(255, 255, 255, 0.7); -fx-font-size: 11px;" />
             </children>
+         <padding>
+            <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />
+         </padding>
         </HBox>
     </top>
 </BorderPane>

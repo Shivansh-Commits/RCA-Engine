@@ -15,7 +15,7 @@
             <Insets bottom="30.0" left="30.0" right="30.0" top="10.0" />
          </padding>
          <children>
-            <Button mnemonicParsing="false" prefHeight="62.0" prefWidth="345.0" stylesheets="@launcher-styles.css" text="Log Extraction Engine" textFill="WHITE">
+            <Button fx:id="logExtractionButton" mnemonicParsing="false" onAction="#openLogExtractionModule" prefHeight="62.0" prefWidth="345.0" stylesheets="@launcher-styles.css" text="Log Extraction Engine" textFill="WHITE">
                <padding>
                   <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
                </padding>
@@ -37,7 +37,7 @@
                   <Cursor fx:constant="HAND" />
                </cursor>
             </Button>
-            <Button fx:id="dataEngineButton" mnemonicParsing="false" onAction="#openDataEngineModule" prefWidth="345.0" stylesheets="@launcher-styles.css" text="API/PNR Engine" textFill="WHITE">
+            <Button fx:id="dataEngineButton" mnemonicParsing="false" onAction="#openDataEngineModule" prefWidth="345.0" stylesheets="@launcher-styles.css" text="RCA Engine" textFill="WHITE">
                <font>
                   <Font size="15.0" />
                </font>
@@ -52,18 +52,24 @@
       </VBox>
    </center>
    <top>
-      <VBox alignment="CENTER" prefHeight="100.0" prefWidth="452.0" spacing="10.0" stylesheets="@launcher-styles.css" BorderPane.alignment="CENTER">
-         <children>
-            <Label fx:id="titleLabel" stylesheets="@launcher-styles.css" text="L3 Engine - Launcher" textFill="#e1e0e0">
-               <font>
-                  <Font name="System Bold" size="27.0" />
-               </font>
-            </Label>
-            <Label fx:id="descLabel" style="-fx-font-size: 14px; -fx-text-fill: #666;" text="Select an Engine to launch:" textFill="#918e8e" />
-         </children>
-         <padding>
-            <Insets top="20.0" />
-         </padding>
-      </VBox>
+      <BorderPane>
+         <center>
+            <VBox alignment="CENTER" prefHeight="100.0" prefWidth="452.0" spacing="5.0" stylesheets="@launcher-styles.css" BorderPane.alignment="CENTER">
+               <children>
+                  <Label fx:id="titleLabel" stylesheets="@launcher-styles.css" text="L3 Engine - Launcher" textFill="#e1e0e0">
+                     <font>
+                        <Font name="System Bold" size="27.0" />
+                     </font>
+                  </Label>
+                  <Label fx:id="versionLabel" style="-fx-font-size: 12px; -fx-text-fill: #888;" />
+                  <Label fx:id="helpButton" onMouseClicked="#onShowHelp" style="-fx-text-fill: #888; -fx-font-size: 12px; -fx-cursor: hand; -fx-underline: true;" text="Help" />
+                  <Label fx:id="descLabel" style="-fx-font-size: 14px; -fx-text-fill: #666;" text="Select an Engine to launch:" textFill="#918e8e" />
+               </children>
+               <padding>
+                  <Insets top="20.0" />
+               </padding>
+            </VBox>
+         </center>
+      </BorderPane>
    </top>
 </BorderPane>

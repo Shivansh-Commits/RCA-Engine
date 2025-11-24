@@ -134,7 +134,27 @@ public class FileParser {
 
             int totalOutput = outputPassengers.values().stream().mapToInt(Passenger::getCount).sum();
 
-            Flight flight = extractFlight(outputFile);
+            // Try to extract flight details, but continue processing if it fails
+            Flight flight;
+            try {
+                flight = extractFlight(outputFile);
+            } catch (Exception e) {
+                // Log the error but continue processing with default flight details
+                System.err.println("Warning: Could not extract flight details from output file: " + e.getMessage());
+                System.err.println("Continuing processing with default flight information...");
+
+                // Create a default flight object with placeholder values
+                flight = new Flight(
+                    "UNKNOWN", // flightNo
+                    "0000",    // depTime
+                    "01/01/1970", // depDate
+                    "XXX",     // depPort
+                    "XXX"      // arrPort
+                );
+
+                // Add this as a warning to be shown to the user
+                allMissingSegments.add("Flight details extraction failed: " + e.getMessage());
+            }
 
             ParseResult result = new ParseResult();
             result.setGlobalInputPassengers(globalInputPassengers);
@@ -489,11 +509,23 @@ public class FileParser {
             }
         }
 
+        // Instead of throwing exceptions, use default values for missing data
         if (flightNo == null) {
-            throw new IOException("Flight number not found in TDT segment for API mode.");
+            System.err.println("Warning: Flight number not found in TDT segment for API mode. Using default value.");
+            flightNo = "UNKNOWN";
         }
         if (depDate == null || depTime == null) {
-            throw new IOException("Departure date/time not found in DTM segment for API mode.");
+            System.err.println("Warning: Departure date/time not found in DTM segment for API mode. Using default values.");
+            if (depDate == null) depDate = "01/01/1970";
+            if (depTime == null) depTime = "0000";
+        }
+        if (depPort.isEmpty()) {
+            System.err.println("Warning: Departure airport not found in LOC segment for API mode. Using default value.");
+            depPort = "XXX";
+        }
+        if (arrPort.isEmpty()) {
+            System.err.println("Warning: Arrival airport not found in LOC segment for API mode. Using default value.");
+            arrPort = "XXX";
         }
 
         return new Flight(flightNo, depTime, depDate, depPort, arrPort);
@@ -539,8 +571,20 @@ public class FileParser {
             if (!depPort.isEmpty() && !arrPort.isEmpty()) break;
         }
 
+        // Instead of throwing exceptions, use default values for missing data
         if (flightNo == null || depDate == null || depTime == null) {
-            throw new IOException("Flight details not found in UNH segment.");
+            System.err.println("Warning: Flight details not found in UNH segment. Using default values.");
+            if (flightNo == null) flightNo = "UNKNOWN";
+            if (depDate == null) depDate = "01/01/70";
+            if (depTime == null) depTime = "0000";
+        }
+        if (depPort.isEmpty()) {
+            System.err.println("Warning: Departure airport not found in LOC segments. Using default value.");
+            depPort = "XXX";
+        }
+        if (arrPort.isEmpty()) {
+            System.err.println("Warning: Arrival airport not found in LOC segments. Using default value.");
+            arrPort = "XXX";
         }
 
         return new Flight(flightNo, depTime, formatDate(depDate), depPort, arrPort);

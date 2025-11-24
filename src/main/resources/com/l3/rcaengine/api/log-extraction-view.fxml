@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane prefHeight="916.0" prefWidth="1025.0" stylesheets="@log-extraction-styles.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logextractor.controller.LogExtractionController">
+   <bottom>
+      <SplitPane dividerPositions="0.5" orientation="VERTICAL" prefHeight="564.0" prefWidth="1026.0" BorderPane.alignment="CENTER">
+         <items>
+
+                  <!-- Enhanced Extracted Files Table -->
+                  <VBox prefHeight="183.0" prefWidth="1026.0" spacing="5.0">
+                      <children>
+                          <Label styleClass="section-label" text="Extracted Log Files" />
+                          <TableView fx:id="extractedFilesTable" prefHeight="182.0" prefWidth="994.0" VBox.vgrow="ALWAYS">
+                              <columns>
+                                  <TableColumn fx:id="fileNameColumn" prefWidth="350.0" text="File Name" />
+                                  <TableColumn fx:id="fileSizeColumn" prefWidth="120.0" text="Size" />
+                                  <TableColumn fx:id="extractedTimeColumn" prefWidth="180.0" text="Extracted Time" />
+                                  <TableColumn fx:id="statusColumn" prefWidth="120.0" text="Status" />
+                              </columns>
+                          </TableView>
+                      </children>
+               <padding>
+                  <Insets bottom="5.0" left="12.0" right="12.0" top="5.0" />
+               </padding>
+                  </VBox>
+      
+                <!-- Enhanced Bottom Section - Logs and Preview -->
+                <SplitPane dividerPositions="0.5" prefHeight="293.0" prefWidth="1026.0">
+                    <items>
+                        <!-- Enhanced Processing Logs -->
+                        <VBox spacing="8.0">
+                            <children>
+                                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                                    <children>
+                                        <Label styleClass="section-label" text="🖥 Processing Logs" />
+                                        <Region HBox.hgrow="ALWAYS" />
+                                        <Label style="-fx-text-fill: black; -fx-font-size: 11px;" text="Real-time pipeline execution logs" />
+                                    </children>
+                                </HBox>
+                                <TextArea fx:id="logArea" editable="false" prefHeight="234.0" prefWidth="491.0" styleClass="logArea" VBox.vgrow="ALWAYS" />
+                            </children>
+                            <padding>
+                                <Insets bottom="12.0" left="12.0" right="6.0" top="12.0" />
+                            </padding>
+                        </VBox>
+      
+                        <!-- Enhanced File Preview -->
+                        <VBox spacing="8.0">
+                            <children>
+                                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                                    <children>
+                                        <Label styleClass="section-label" text="👁 File Preview" />
+                                        <Region HBox.hgrow="ALWAYS" />
+                                        <Label style="-fx-text-fill: black; -fx-font-size: 11px;" text="Select a file to preview content" />
+                                    </children>
+                                </HBox>
+                                <TextArea fx:id="filePreviewArea" editable="false" prefHeight="268.0" prefWidth="490.0" styleClass="previewArea" VBox.vgrow="ALWAYS" />
+                            </children>
+                            <padding>
+                                <Insets bottom="12.0" left="6.0" right="12.0" top="12.0" />
+                            </padding>
+                        </VBox>
+                    </items>
+                </SplitPane>
+         </items>
+      </SplitPane>
+   </bottom>
+   <top>
+          <VBox spacing="14.0" BorderPane.alignment="CENTER">
+              <children>
+                    <HBox alignment="CENTER_LEFT" spacing="15.0" styleClass="content-panel" stylesheets="@log-extraction-styles.css">
+                        <children>
+                            <ImageView fitHeight="37.0" fitWidth="88.0" pickOnBounds="true" preserveRatio="true">
+                                <image>
+                                    <Image url="@../../../../images/idhmYHKKeL_1759401346656.jpeg" />
+                                </image>
+                            </ImageView>
+                            <VBox spacing="2.0">
+                                <children>
+                                    <Label styleClass="header-label" text="Log Extraction Module" textFill="WHITE" />
+                                    <Label style="-fx-text-fill: rgba(255, 255, 255, 0.7); -fx-font-size: 12px;" text="Extract flight logs via Azure DevOps Pipeline" />
+                                </children>
+                            </VBox>
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Label fx:id="versionLabel" style="-fx-text-fill: rgba(255, 255, 255, 0.7); -fx-font-size: 11px;" />
+                        </children>
+                        <padding>
+                            <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />
+                        </padding>
+                    </HBox>
+
+                  <!-- Enhanced Input Section -->
+                  <VBox spacing="8.0" styleClass="input-section">
+                      <children>
+                          <Label styleClass="section-label" text="Flight Information and Incident Details">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font></Label>
+                          <HBox alignment="CENTER_LEFT" spacing="16.0">
+                              <children>
+                                  <VBox prefWidth="200.0" spacing="6.0">
+                                      <children>
+                                          <Label text="Flight Number" />
+                                          <TextField fx:id="flightNumberField" promptText="e.g., BA123, TK1234" />
+                                      </children>
+                                  </VBox>
+                                  <VBox prefWidth="180.0" spacing="6.0">
+                                      <children>
+                                          <Label text="Incident Date" />
+                                          <DatePicker fx:id="incidentDatePicker" minWidth="200.0" />
+                                      </children>
+                                  </VBox>
+                                  <VBox prefWidth="120.0" spacing="6.0">
+                                      <children>
+                                          <Label text="Time " />
+                                          <TextField fx:id="incidentTimeField" disable="true" editable="false" minWidth="200.0" promptText="HH:MM" />
+                                      </children>
+                                  </VBox>
+                              </children>
+                          </HBox>
+                      </children>
+               <padding>
+                  <Insets left="16.0" right="16.0" />
+               </padding>
+                  </VBox>
+
+                  <!-- Enhanced Action Buttons -->
+                  <HBox alignment="CENTER_LEFT" spacing="16.0">
+                      <children>
+                          <Button fx:id="extractButton" maxWidth="120.0" minWidth="120.0" onAction="#onExtractLogs" styleClass="primaryButton" text="🚀 Extract Logs">
+                              <tooltip>
+                                  <Tooltip text="Start log extraction process via Azure Pipeline" />
+                              </tooltip>
+                          </Button>
+                            <Button fx:id="configureButton" maxWidth="120.0" minWidth="100.0" onAction="#onConfigure" styleClass="configButton" text="⚙ Configure Azure">
+                                <tooltip>
+                                    <Tooltip text="Configure Azure DevOps connection settings" />
+                                </tooltip>
+                            </Button>
+                          <Button fx:id="clearButton" minWidth="100.0" onAction="#onClear" styleClass="secondaryButton" text="🗑 Clear" />
+                          <Region HBox.hgrow="ALWAYS" />
+                          <VBox alignment="CENTER_RIGHT" spacing="4.0">
+                              <children>
+                                  <ProgressBar fx:id="progressBar" prefWidth="220.0" visible="false" />
+                                  <Label fx:id="statusLabel" styleClass="status-label" text="Ready" />
+                              </children>
+                          </VBox>
+                      </children>
+                      <padding>
+                          <Insets left="16.0" right="16.0" />
+                      </padding>
+                  </HBox>
+
+                  <Separator>
+               <padding>
+                  <Insets left="16.0" right="16.0" />
+               </padding>
+            </Separator>
+
+                  <!-- Enhanced Download Section -->
+                  <VBox spacing="12.0" styleClass="input-section">
+                      <children>
+                          <Label styleClass="section-label" text="📥 Download Options" />
+                          <VBox spacing="8.0">
+                              <children>
+                                  <HBox alignment="CENTER_LEFT" spacing="12.0">
+                                      <children>
+                                          <Label minWidth="120.0" text="Output Directory:" />
+                                          <TextField fx:id="outputDirectoryField" promptText="Select directory to save extracted logs" HBox.hgrow="ALWAYS" />
+                                          <Button fx:id="browseOutputButton" onAction="#onBrowseOutput" styleClass="browseButton" text="📁 Browse" />
+                                      </children>
+                                  </HBox>
+                                  <HBox alignment="CENTER_LEFT" spacing="12.0">
+                                      <children>
+                                          <Button fx:id="downloadAllButton" disable="true" onAction="#onDownloadAll" styleClass="primaryButton" text="⬇ Download All" />
+                                          <Button fx:id="downloadSelectedButton" disable="true" onAction="#onDownloadSelected" styleClass="secondaryButton" text="📄 Download Selected" />
+                                          <Region HBox.hgrow="ALWAYS" />
+                                          <Label fx:id="summaryLabel" styleClass="success-label" />
+                                      </children>
+                                  </HBox>
+                              </children>
+                          </VBox>
+                      </children>
+               <padding>
+                  <Insets left="16.0" right="16.0" />
+               </padding>
+                  </VBox>
+              </children>
+              <padding>
+                  <Insets bottom="16.0" />
+              </padding>
+          </VBox>
+   </top>
+</BorderPane>
