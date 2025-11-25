@@ -1,10 +1,12 @@
 package com.l3.logextractor.config;
 
+import com.l3.common.util.PropertiesUtil;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -33,7 +35,10 @@ public class AzureConfig {
         this.pipelineId = "";
         this.personalAccessToken = "";
         this.branch = "";
-        this.environment = "azure_ci2"; // Default environment
+
+        // Get default environment from application.properties
+        List<String> environments = PropertiesUtil.getPropertyAsList("azure.environments");
+        this.environment = environments.isEmpty() ? "azure_ci2" : environments.get(0);
     }
 
     /**
@@ -85,7 +90,10 @@ public class AzureConfig {
             props.setProperty("azure.project", project != null ? project : "");
             props.setProperty("azure.pipelineId", pipelineId != null ? pipelineId : "");
             props.setProperty("azure.branch", branch != null ? branch : "");
-            props.setProperty("azure.environment", environment != null ? environment : "azure_ci2");
+            // Get default environment from application.properties
+            List<String> environments = PropertiesUtil.getPropertyAsList("azure.environments");
+            String defaultEnvironment = environments.isEmpty() ? "azure_ci2" : environments.get(0);
+            props.setProperty("azure.environment", environment != null ? environment : defaultEnvironment);
 
             // Encrypt personal access token before storing
             String encryptedToken = personalAccessToken != null && !personalAccessToken.isEmpty()

@@ -1,6 +1,8 @@
 package com.l3.logextractor.model;
 
+import com.l3.common.util.PropertiesUtil;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Model class representing a log extraction request
@@ -15,7 +17,10 @@ public class LogExtractionRequest {
     public LogExtractionRequest() {
         this.requestId = generateRequestId();
         this.requestTime = LocalDateTime.now();
-        this.environment = "azure_ci2"; // Default environment
+
+        // Get default environment from application.properties
+        List<String> environments = PropertiesUtil.getPropertyAsList("azure.environments");
+        this.environment = environments.isEmpty() ? "azure_ci2" : environments.get(0);
     }
 
     public LogExtractionRequest(String flightNumber, LocalDateTime incidentDate) {
