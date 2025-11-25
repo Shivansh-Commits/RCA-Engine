@@ -137,7 +137,7 @@ public class LauncherController implements Initializable {
                          "AUTHORS:\n" +
                          "Developed by:\n" +
                          "- Shivansh Singh Bhadouria (Shivansh.Bhadouria@sita.aero)\n"+
-                         "- Ujjawal Choudhary (Ujjawal.1@sita.aero)\n"+
+                         "- Ujjawal Chaudhary (Ujjawal.1@sita.aero)\n"+
 
                          "VERSION: " + VersionUtil.getFormattedVersion() + "\n" +
                          "Built for modern airline operations and data analysis workflows.";
