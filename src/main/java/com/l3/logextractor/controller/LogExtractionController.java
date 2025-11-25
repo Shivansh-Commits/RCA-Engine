@@ -7,6 +7,7 @@ import com.l3.logextractor.model.PipelineRunResult;
 import com.l3.logextractor.service.AzurePipelineService;
 import com.l3.logextractor.service.FileDownloadService;
 import com.l3.common.util.VersionUtil;
+import com.l3.common.util.PropertiesUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -434,7 +435,13 @@ public class LogExtractionController implements Initializable {
         tokenField.setPrefWidth(250);
 
         ComboBox<String> environmentField = new ComboBox<>();
-        environmentField.getItems().addAll("azure_ci2", "azure_ci5");
+        List<String> environments = PropertiesUtil.getPropertyAsList("azure.environments");
+        if (environments.isEmpty()) {
+            // Fallback to default values if not found in properties
+            environmentField.getItems().addAll("azure_ci2", "azure_ci5","SF2_QA","SF2_Prod");
+        } else {
+            environmentField.getItems().addAll(environments);
+        }
         environmentField.setValue(azureConfig.getEnvironment());
         environmentField.setPrefWidth(250);
 
@@ -621,9 +628,17 @@ public class LogExtractionController implements Initializable {
 
                 // 6. ENVIRONMENT VALIDATION
                 // Filter: Must be exactly one of the predefined values
-                if (!cleanEnvironment.equals("azure_ci2") && !cleanEnvironment.equals("azure_ci5")) {
+                List<String> validEnvironments = PropertiesUtil.getPropertyAsList("azure.environments");
+                if (validEnvironments.isEmpty()) {
+                    // Fallback to default values if not found in properties
+                    validEnvironments = List.of("azure_ci2", "azure_ci5","SF2_QA","SF2_Prod");
+                }
+
+                if (!validEnvironments.contains(cleanEnvironment)) {
+                    String validEnvironmentsStr = String.join(", ", validEnvironments.stream()
+                        .map(env -> "'" + env + "'").toArray(String[]::new));
                     return "❌ Environment invalid.\n" +
-                           "Required: Must be either 'azure_ci2' or 'azure_ci5'\n" +
+                           "Required: Must be one of " + validEnvironmentsStr + "\n" +
                            "Current: '" + cleanEnvironment + "'";
                 }
 
