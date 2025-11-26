@@ -8,6 +8,8 @@ import com.l3.logextractor.service.AzurePipelineService;
 import com.l3.logextractor.service.FileDownloadService;
 import com.l3.common.util.VersionUtil;
 import com.l3.common.util.PropertiesUtil;
+import com.l3.common.util.ErrorHandler;
+import com.l3.common.util.ErrorCodes;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -190,24 +192,24 @@ public class LogExtractionController implements Initializable {
         String flightNumber = flightNumberField.getText().trim();
         LocalDate incidentDate = incidentDatePicker.getValue();
         String environment = azureConfig.getEnvironment();
-
-        if (flightNumber.isEmpty()) {
-            showAlert("Validation Error", "Please enter a flight number.");
+        // Validation checks with standardized error codes
+        if (flightNumber == null || flightNumber.trim().isEmpty()) {
+            ErrorHandler.showError(ErrorCodes.LE006, "Flight number field is empty. Please enter a valid flight number (minimum 3 characters).");
             return;
         }
 
-        if (flightNumber.length() < 3) {
-            showAlert("Validation Error", "Flight number must be at least 3 characters long.");
+        if (flightNumber.trim().length() < 3) {
+            ErrorHandler.showError(ErrorCodes.LE006, "Flight number '" + flightNumber + "' is too short. Flight numbers must be at least 3 characters long (e.g., WF123, AI101).");
             return;
         }
 
         if (incidentDate == null) {
-            showAlert("Validation Error", "Please select an incident date using the date picker.");
+            ErrorHandler.showError(ErrorCodes.LE006, "Incident date is required. Please select a date using the date picker.");
             return;
         }
 
         if (environment == null || environment.trim().isEmpty()) {
-            showAlert("Configuration Error", "Please configure the environment in Azure settings (⚙ Configure Azure button).");
+            ErrorHandler.showError(ErrorCodes.LE001, "Azure environment is not configured. Please click the ⚙ Configure Azure button to set up your Azure DevOps connection.");
             return;
         }
 
@@ -246,6 +248,8 @@ public class LogExtractionController implements Initializable {
                         progressBar.setVisible(false);
                         extractButton.setDisable(false);
                         statusLabel.setText("Pipeline failed to start");
+                        String errorDetails = currentRun != null ? currentRun.getErrorMessage() : "Unknown pipeline failure";
+                        ErrorHandler.showError(ErrorCodes.LE003, "Pipeline execution failed. " + errorDetails);
                     });
                 }
 
@@ -518,7 +522,7 @@ public class LogExtractionController implements Initializable {
                     addLogMessage("Configuration file: " + azureConfig.getConfigFileLocation());
                 } else {
                     addLogMessage("Azure configuration updated but could not be saved to file.");
-                    showAlert("Warning", "Configuration was applied but could not be saved to file. Settings will be lost when application restarts.");
+                    ErrorHandler.showWarning(ErrorCodes.LE001, "Configuration was applied successfully but could not be saved to properties file. Your settings will work for this session but will be lost when the application restarts.");
                 }
 
                 addLogMessage("Organization: " + azureConfig.getOrganization());
@@ -701,11 +705,29 @@ public class LogExtractionController implements Initializable {
         };
 
         testTask.setOnSucceeded(e -> {
-            showAlert("Configuration Validation", testTask.getValue());
+            ErrorHandler.showInfo("Configuration Validation", testTask.getValue());
         });
 
         testTask.setOnFailed(e -> {
-            showAlert("Configuration Validation", "❌ Validation failed: " + testTask.getException().getMessage());
+            Throwable exception = testTask.getException();
+            String errorMessage = exception.getMessage();
+            String errorCode = ErrorCodes.LE002; // Default to credentials error
+
+            // Determine specific error type based on exception message
+            if (errorMessage.contains("network") || errorMessage.contains("connection") || errorMessage.contains("timeout")) {
+                errorCode = ErrorCodes.LE004;
+            } else if (errorMessage.contains("permission") || errorMessage.contains("unauthorized") || errorMessage.contains("403")) {
+                errorCode = ErrorCodes.LE005;
+            } else if (errorMessage.contains("authentication") || errorMessage.contains("token") || errorMessage.contains("401")) {
+                errorCode = ErrorCodes.LE002;
+            }
+
+            // Cast Throwable to Exception or handle as string if not an Exception
+            if (exception instanceof Exception) {
+                ErrorHandler.showError(errorCode, (Exception) exception);
+            } else {
+                ErrorHandler.showError(errorCode, "Configuration validation failed: " + errorMessage);
+            }
         });
 
         Thread testThread = new Thread(testTask);
@@ -727,8 +749,8 @@ public class LogExtractionController implements Initializable {
     @FXML
     private void onDownloadAll() {
         String outputDir = outputDirectoryField.getText();
-        if (outputDir.isEmpty()) {
-            showAlert("Output Directory", "Please select an output directory first.");
+        if (outputDir == null || outputDir.trim().isEmpty()) {
+            ErrorHandler.showError(ErrorCodes.LE007, "Output directory is required for downloading files. Please click 'Browse' to select a folder where the extracted files will be saved.");
             return;
         }
 
@@ -746,8 +768,8 @@ public class LogExtractionController implements Initializable {
         if (selected == null) return;
 
         String outputDir = outputDirectoryField.getText();
-        if (outputDir.isEmpty()) {
-            showAlert("Output Directory", "Please select an output directory first.");
+        if (outputDir == null || outputDir.trim().isEmpty()) {
+            ErrorHandler.showError(ErrorCodes.LE007, "Output directory is required for downloading files. Please click 'Browse' to select a folder where the extracted files will be saved.");
             return;
         }
 
@@ -939,13 +961,6 @@ public class LogExtractionController implements Initializable {
         return String.format("%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0));
     }
 
-    private void showAlert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
 
     /**
      * Cleanup method to shutdown resources properly when application closes

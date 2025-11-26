@@ -51,12 +51,34 @@ L3 Engine is your one-stop solution for investigating and resolving airline prod
 
 When you encounter a production issue, L3 Engine guides you through a logical, step-by-step process:
 
-```
-❶ INCIDENT REPORTED → ❷ EXTRACT LOGS → ❸ PARSE DATA → ❹ ANALYZE ISSUES → ❺ GENERATE REPORT
-   "Flight WF123        Get all system    Find passenger      Compare input      Create Excel
-    has missing         logs for this      messages in       vs output data     report with
-    passengers"         flight            the logs          automatically       findings"
-```
+  ❶INCIDENT REPORTED →    
+   Flight WF123                  
+   has missing                  
+   passengers"                    
+
+
+   ❷ EXTRACT LOGS →
+   Get all system
+   logs for this
+   flight
+
+
+   ❸ PARSE DATA →
+   Find passenger
+   messages in
+   the logs
+
+
+   ❹ ANALYZE ISSUES →
+   Compare input
+   vs output data
+   automatically
+
+
+   ❺ GENERATE REPORT
+   Create Excel
+   report with
+   findings
 
 ### What Each Step Accomplishes
 
@@ -104,7 +126,7 @@ Before using L3 Engine, ensure you have:
 
 **Step 2: Launch the Application**
 
-**[INSERT IMAGE: Launcher Window Screenshot]**
+**[IMAGE: Launcher Window Screenshot]**
 
 When you first start L3 Engine, you'll see a launcher with these options:
 
@@ -165,7 +187,7 @@ Instead of hunting through multiple systems and asking different teams for log f
 
 **With L3 Engine**: Enter flight details → click Extract → get complete log package in 5 minutes
 
-**[INSERT IMAGE: Log Extraction Engine Main Interface]**
+**[IMAGE: Log Extraction Engine Main Interface]**
 
 ### 4.2 How to Use It
 
@@ -191,7 +213,7 @@ Instead of hunting through multiple systems and asking different teams for log f
 
 #### Step 2: Configure Azure Connection (First Time Only)
 
-**[INSERT IMAGE: Azure Configuration Dialog]**
+**[IMAGE: Azure Configuration Dialog]**
 
 Click "⚙ Configure Azure" if this is your first time or if you see connection errors.
 
@@ -217,7 +239,7 @@ Click "⚙ Configure Azure" if this is your first time or if you see connection 
 3. **Typical wait time**: 5-10 minutes depending on log size
 4. When complete, you'll see a list of extracted files
 
-**[INSERT IMAGE: Extraction Progress Interface]**
+**[IMAGE: Extraction Progress Interface]**
 
 **What you'll see during extraction**:
 - ✅ "Starting pipeline..." - System is connecting to Azure
@@ -227,7 +249,7 @@ Click "⚙ Configure Azure" if this is your first time or if you see connection 
 
 #### Step 4: Download Your Files
 
-**[INSERT IMAGE: Extracted Files Table]**
+**[IMAGE: Extracted Files Table]**
 
 You'll see a table with all the log files found:
 - **File Name**: The name of each log file
@@ -314,7 +336,7 @@ After you've extracted logs, they're usually huge files full of technical inform
 
 **With L3 Engine**: Point to log folder → select data type → get clean passenger data files in minutes
 
-**[INSERT IMAGE: Log Parser Engine Main Interface]**
+**[IMAGE: Log Parser Engine Main Interface]**
 
 ### 5.2 How to Use It
 
@@ -347,7 +369,7 @@ After you've extracted logs, they're usually huge files full of technical inform
 
 #### Step 3: Choose Your Data Type
 
-**[INSERT IMAGE: Data Type Selection Interface]**
+**[IMAGE: Data Type Selection Interface]**
 
 **API (Advanced Passenger Information)** 
 - **What it is**: Passenger manifest data with names, passport numbers, nationalities
@@ -386,7 +408,7 @@ After you've extracted logs, they're usually huge files full of technical inform
 3. **Typical wait time**: 2-5 minutes for normal-sized logs
 4. When complete, you'll see extracted messages in the results table
 
-**[INSERT IMAGE: Message Extraction Progress]**
+**[IMAGE: Message Extraction Progress]**
 
 **What you'll see during processing**:
 -  "Scanning log files..." - Finding relevant files
@@ -397,7 +419,7 @@ After you've extracted logs, they're usually huge files full of technical inform
 
 #### Results Table
 
-**[INSERT IMAGE: Parsed Messages Results Table]**
+**[IMAGE: Parsed Messages Results Table]**
 
 **What each column means**:
 - **Part**: Some messages are split into parts (1, 2, 3, etc.)
@@ -410,7 +432,7 @@ After you've extracted logs, they're usually huge files full of technical inform
 
 #### Message Preview
 
-**[INSERT IMAGE: Message Preview Pane]**
+**[IMAGE: Message Preview Pane]**
 
 - **Click any row** in the results table to see the full message
 - **Raw format**: This is the actual airline industry standard format
@@ -496,7 +518,7 @@ The RCA Engine is where you find answers. It compares different files of passeng
 - "Passenger John Smith appears twice in the manifest. Why?"
 - "The input file had 200 passengers, but output shows 205. What happened?"
 
-**[INSERT IMAGE: RCA Engine Main Interface]**
+**[IMAGE: RCA Engine Main Interface]**
 
 ### 6.2 How to Use It
 
@@ -507,24 +529,15 @@ The RCA Engine is where you find answers. It compares different files of passeng
 - Usually from the Log Parser Engine output
 - Or provided by operations/IT team
 
-**Expected file names for API data**:
-- `api_input.txt` - Original API passenger data sent to the system
-- `api_output.txt` - API passenger data after processing
-- `passenger_api_input.txt` - Alternative API input format
-- `passenger_api_output.txt` - Alternative API output format
-- `crew_api_input.txt` - Flight crew data (optional)
-
-**Expected file names for PNR data**:
-- `pnr_input.txt` - Original PNR booking data
-- `pnr_output.txt` - PNR data after processing
-- `passenger_pnr_input.txt` - Alternative PNR input format
-- `passenger_pnr_output.txt` - Alternative PNR output format
+**Expected file names for API & PNR data**:
+- `input*.txt` - Original API passenger data sent to the system
+- `output*.txt` - API passenger data after processing
 
 **💡 Tip**: Don't worry about exact file names - the system will find passenger data files automatically based on your data type selection
 
 #### Step 2: Choose What Type of Data to Analyze
 
-**[INSERT IMAGE: Data Type Selection Interface]**
+**[IMAGE: Data Type Selection Interface]**
 
 **Data Type Options**:
 - **API**: Passenger manifest data with security/immigration focus
@@ -552,7 +565,7 @@ The RCA Engine is where you find answers. It compares different files of passeng
 
 #### Summary Statistics - Your Investigation Dashboard
 
-**[INSERT IMAGE: Summary Statistics Panel]**
+**[IMAGE: Summary Statistics Panel]**
 
 **What each number tells you**:
 
@@ -576,7 +589,7 @@ The RCA Engine is where you find answers. It compares different files of passeng
 
 #### Flight Information
 
-**[INSERT IMAGE: Flight Information Panel]**
+**[IMAGE: Flight Information Panel]**
 
 Automatically extracted and displayed:
 - **Flight Number**: Confirms you're analyzing the right flight
@@ -587,7 +600,7 @@ Automatically extracted and displayed:
 
 #### Input Passengers Table - "What Should Have Been Processed"
 
-**[INSERT IMAGE: Input Passengers Table]**
+**[IMAGE: Input Passengers Table]**
 
 **What you'll see**:
 - Every passenger from the original input data
@@ -602,7 +615,7 @@ Automatically extracted and displayed:
 
 #### Output Passengers Table - "What Actually Got Processed"
 
-**[INSERT IMAGE: Output Passengers Table]**
+**[IMAGE: Output Passengers Table]**
 
 **What you'll see**:
 - Every passenger that was successfully processed
@@ -616,7 +629,7 @@ Automatically extracted and displayed:
 
 #### Dropped Passengers Table - "The Missing Ones" 
 
-**[INSERT IMAGE: Dropped Passengers Table]**
+**[IMAGE: Dropped Passengers Table]**
 
 **What you'll see**: Passengers who were in input but missing from output
 
@@ -632,7 +645,7 @@ Automatically extracted and displayed:
 
 #### Duplicate Passengers Table - "The Repeats" 
 
-**[INSERT IMAGE: Duplicate Passengers Table]**
+**[IMAGE: Duplicate Passengers Table]**
 
 **What you'll see**: Passengers appearing multiple times
 
@@ -646,7 +659,7 @@ Automatically extracted and displayed:
 
 #### Smart Search Function
 
-**[INSERT IMAGE: Search Interface]**
+**[IMAGE: Search Interface]**
 
 **How to search**:
 - Type in the search box above any table
@@ -664,7 +677,7 @@ Automatically extracted and displayed:
 
 #### Excel Report Creation
 
-**[INSERT IMAGE: Export Options Interface]**
+**[IMAGE: Export Options Interface]**
 
 **Click "Export to Excel"** to generate a professional investigation report.
 
@@ -1244,6 +1257,8 @@ UNT+15+MSG001'
 - **LE003**: Pipeline trigger failed
 - **LE004**: Network connectivity error
 - **LE005**: Insufficient permissions
+- **LE006**: Required variables missing
+- **LE007**: Invalid directory path
 
 #### B.2 Log Parser Errors
 - **LP001**: Invalid directory path
@@ -1258,6 +1273,7 @@ UNT+15+MSG001'
 - **RCA003**: Data validation failed
 - **RCA004**: Excel export failed
 - **RCA005**: Memory allocation error
+- **RCA006**: Expected files not found in folder
 
 ### Appendix C: Configuration Templates
 

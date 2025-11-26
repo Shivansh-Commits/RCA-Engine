@@ -8,6 +8,8 @@ import com.l3.logparser.pnr.model.PnrMessage;
 import com.l3.logparser.pnr.model.PnrFlightDetails;
 import com.l3.logparser.enums.DataType;
 import com.l3.common.util.VersionUtil;
+import com.l3.common.util.ErrorHandler;
+import com.l3.common.util.ErrorCodes;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -241,23 +243,24 @@ public class MessageExtractorController implements Initializable {
         String arrivalAirport = arrivalAirportField.getText().trim();
         DataType selectedDataType = dataTypeComboBox.getValue();
 
+        // Validation with standardized error codes
         if (logDirectory.isEmpty()) {
-            showAlert("Error", "Please select a log directory");
+            ErrorHandler.showError(ErrorCodes.LP001, "Log directory is required but was not selected. Please click 'Browse' to select the directory containing the log files to be processed.");
             return;
         }
 
         if (flightNumber.isEmpty()) {
-            showAlert("Error", "Please enter a flight number");
+            ErrorHandler.showError(ErrorCodes.LP006, "Flight number is required but was not provided. Please enter the flight number you want to extract messages for.");
             return;
         }
 
         if (!isValidDate(selectedDate)) {
-            showAlert("Error", "Please select a departure date");
+            ErrorHandler.showError(ErrorCodes.LP006, "Departure date is required but was not selected. Please choose the flight departure date using the date picker.");
             return;
         }
 
         if (selectedDataType == null) {
-            showAlert("Error", "Please select a data type to extract");
+            ErrorHandler.showError(ErrorCodes.LP006, "Data type selection is required. Please choose either API or PNR from the data type dropdown.");
             return;
         }
 
@@ -270,7 +273,7 @@ public class MessageExtractorController implements Initializable {
                 actualLogDirectory = consolidatedPath;
                 addLogMessage("Using consolidated logs directory: " + actualLogDirectory);
             } else {
-                showAlert("Error", "Failed to consolidate multi-node logs. Please check that n1, n2, n3 folders exist in the selected directory.");
+                ErrorHandler.showError(ErrorCodes.LP004, "Failed to consolidate multi-node logs. Please verify that /n1, /n2, /n3 subdirectories exist in the selected directory, or disable multi-node mode if you don't have these subdirectories.");
                 return;
             }
         }
@@ -332,7 +335,25 @@ public class MessageExtractorController implements Initializable {
             @Override
             protected void failed() {
                 Platform.runLater(() -> {
-                    showAlert("Error", "Extraction failed: " + getException().getMessage());
+                    Throwable exception = getException();
+                    String errorMessage = exception.getMessage();
+                    String errorCode = ErrorCodes.LP003; // Default to parsing failed
+
+                    // Determine specific error type
+                    if (errorMessage.contains("directory") || errorMessage.contains("path") || errorMessage.contains("file not found")) {
+                        errorCode = ErrorCodes.LP001;
+                    } else if (errorMessage.contains("EDIFACT") || errorMessage.contains("message") || errorMessage.contains("parsing")) {
+                        errorCode = ErrorCodes.LP003;
+                    } else if (errorMessage.contains("multi-node") || errorMessage.contains("consolidation")) {
+                        errorCode = ErrorCodes.LP004;
+                    }
+
+                    if (exception instanceof Exception) {
+                        ErrorHandler.showError(errorCode, (Exception) exception);
+                    } else {
+                        ErrorHandler.showError(errorCode, "Message extraction failed: " + errorMessage);
+                    }
+
                     progressBar.setVisible(false);
                     processButton.setDisable(false);
                     statusLabel.setText("Extraction failed");
@@ -486,13 +507,13 @@ public class MessageExtractorController implements Initializable {
     @FXML
     private void onSaveExtracted() {
         if (lastResult == null || lastResult.getExtractedMessages().isEmpty()) {
-            showAlert("Error", "No extracted messages to save");
+            ErrorHandler.showError(ErrorCodes.LP002, "No extracted messages to save. Please extract messages from logs first by clicking 'Process Logs'.");
             return;
         }
 
         String outputDirectory = outputDirectoryField.getText().trim();
         if (outputDirectory.isEmpty()) {
-            showAlert("Error", "Please select an output directory");
+            ErrorHandler.showError(ErrorCodes.LP001, "Output directory is required for saving files. Please click 'Browse' to select a folder where the extracted messages will be saved.");
             return;
         }
 
@@ -510,10 +531,10 @@ public class MessageExtractorController implements Initializable {
         }
 
         if (success) {
-            showAlert("Success", "Extracted messages saved successfully to:\n" + outputDirectory);
+            ErrorHandler.showInfo("Save Successful", "Extracted messages saved successfully to:\n" + outputDirectory);
             addLogMessage("Messages saved to: " + outputDirectory);
         } else {
-            showAlert("Error", "Failed to save extracted messages");
+            ErrorHandler.showError(ErrorCodes.LP005, "Failed to save extracted messages to the specified directory. Please check that the output directory is writable and has sufficient disk space.");
         }
     }
 
@@ -672,13 +693,6 @@ public class MessageExtractorController implements Initializable {
         logArea.appendText(String.format("[%s] %s%n", timestamp, message));
     }
 
-    private void showAlert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
 
     private Stage getStage() {
         return (Stage) logDirectoryField.getScene().getWindow();
