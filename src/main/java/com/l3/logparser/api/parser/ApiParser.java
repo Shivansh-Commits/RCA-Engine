@@ -10,7 +10,7 @@ import java.util.function.Consumer;
  * Parser for EDIFACT messages found in log files
  * Handles UNA separators and extracts flight information
  */
-public class EdifactParser {
+public class ApiParser {
 
     private static final String UNA_PATTERN = "UNA:(.)(.)(.)(.)(.)(.)";
     private static final String UNH_PATTERN = "UNH(.)(\\d+)(.)(PAXLST:D:05B:UN:IATA(.)(\\w+)(.)(.+?)(.)";
@@ -25,7 +25,7 @@ public class EdifactParser {
     /**
      * Constructor - initialize with default EDIFACT separators
      */
-    public EdifactParser() {
+    public ApiParser() {
         setDefaultSeparators();
     }
 

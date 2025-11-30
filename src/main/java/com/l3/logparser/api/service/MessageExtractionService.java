@@ -2,8 +2,7 @@ package com.l3.logparser.api.service;
 
 import com.l3.logparser.api.model.EdifactMessage;
 import com.l3.logparser.api.model.FlightDetails;
-import com.l3.logparser.api.parser.EdifactParser;
-import com.l3.logparser.enums.MessageType;
+import com.l3.logparser.api.parser.ApiParser;
 import com.l3.logparser.enums.DataType;
 
 import java.io.*;
@@ -18,13 +17,13 @@ import java.util.stream.Collectors;
  */
 public class MessageExtractionService {
 
-    private final EdifactParser edifactParser;
+    private final ApiParser edifactParser;
     private static final List<String> LOG_FILE_PATTERNS = Arrays.asList(
             "das.log*", "MessageTypeB.log*", "MessageAPI.log*", "MessageForwarder.log*"
     );
 
     public MessageExtractionService() {
-        this.edifactParser = new EdifactParser();
+        this.edifactParser = new ApiParser();
     }
 
     /**
@@ -183,14 +182,13 @@ public class MessageExtractionService {
             }
             long fileSize = Files.size(logFile);
 
-            if (fileSize > 50 * 1024 * 1024) { // If file is larger than 50MB
+            if (fileSize > 50 * 1024 * 1024)
+            { // If file is larger than 50MB
                 messages = processLargeLogFile(logFile, flightNumber, debugMode, debugLogger);
-            } else {
+            }
+            else
+            {
                 String content = Files.readString(logFile);
-
-                int stxCount = countOccurrences(content, "$STX$UNA");
-                int unaCount = countOccurrences(content, "UNA:");
-                int tdtCount = countOccurrences(content, "TDT(");
 
                 messages = edifactParser.parseLogContent(content, flightNumber, debugMode, debugLogger);
             }
@@ -255,19 +253,6 @@ public class MessageExtractionService {
         }
 
         return messages;
-    }
-
-    /**
-     * Count occurrences of a substring in text
-     */
-    private int countOccurrences(String text, String substring) {
-        int count = 0;
-        int index = 0;
-        while ((index = text.indexOf(substring, index)) != -1) {
-            count++;
-            index += substring.length();
-        }
-        return count;
     }
 
     /**
