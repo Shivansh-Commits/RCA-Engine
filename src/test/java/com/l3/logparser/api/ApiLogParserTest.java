@@ -77,6 +77,8 @@ class ApiLogParserTest {
         assertTrue(passengerApiInput.contains("BGM+745"), "Input should contain passenger message indicator BGM+745");
         assertTrue(passengerApiInput.contains("OSL"), "Input should contain departure airport OSL");
         assertTrue(passengerApiInput.contains("LGW"), "Input should contain arrival airport LGW");
+        assertTrue(passengerApiInput.contains("DTM+189:2510040930:201'"), "Input should contain Departure Date 251004");
+        assertTrue(passengerApiInput.contains("DTM+232:2510041545:201'"), "Input should contain Arrival Date 251004");
 
         // If the parser successfully extracts messages, verify their content
         if (!messages.isEmpty()) {
@@ -89,6 +91,16 @@ class ApiLogParserTest {
 
             if (message.getDataType() != null) {
                 assertEquals("PASSENGER", message.getDataType(), "Should identify as passenger message");
+            }
+
+            if(message.getFlightDetails().getDepartureDate() != null) {
+                FlightDetails details = message.getFlightDetails();
+                assertEquals("251004", details.getDepartureDate().toString(), "Departure date should be 251004");
+            }
+
+            if(message.getFlightDetails().getArrivalDate() != null) {
+                FlightDetails details = message.getFlightDetails();
+                assertEquals("251004", details.getArrivalDate().toString(), "Arrival date should be 251004");
             }
         }
 
