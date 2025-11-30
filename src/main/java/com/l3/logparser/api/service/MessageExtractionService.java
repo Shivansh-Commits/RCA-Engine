@@ -75,10 +75,6 @@ public class MessageExtractionService {
                 allMessages.addAll(extractApiMessages(logDir, flightNumber, result, debugMode, debugLogger));
             }
 
-            if (dataType == DataType.PNR) {
-                allMessages.addAll(extractPnrMessages(logDir, flightNumber, result));
-            }
-
             if (debugMode && debugLogger != null) {
                 debugLogger.accept("Total messages after parsing all files: " + allMessages.size());
             }
@@ -158,72 +154,6 @@ public class MessageExtractionService {
 
         return messages;
     }
-
-    /**
-     * Extract PNR messages from log files
-     * This method integrates with the new PNR extraction service
-     */
-    private List<EdifactMessage> extractPnrMessages(Path logDir, String flightNumber, ExtractionResult result) throws IOException {
-        List<EdifactMessage> messages = new ArrayList<>();
-
-        // Use the dedicated PNR extraction service
-        com.l3.logparser.pnr.service.PnrExtractionService pnrService =
-            new com.l3.logparser.pnr.service.PnrExtractionService();
-
-        com.l3.logparser.pnr.service.PnrExtractionService.PnrExtractionResult pnrResult =
-            pnrService.extractPnrMessages(logDir.toString(), flightNumber, null, null, null);
-
-        // Convert PNR messages to EdifactMessage format for compatibility
-        for (com.l3.logparser.pnr.model.PnrMessage pnrMessage : pnrResult.getExtractedMessages()) {
-            EdifactMessage edifactMessage = convertPnrToEdifactMessage(pnrMessage);
-            messages.add(edifactMessage);
-        }
-
-        // Add any errors or warnings from PNR service to the main result
-        for (String error : pnrResult.getErrors()) {
-            result.addError("PNR: " + error);
-        }
-        for (String warning : pnrResult.getWarnings()) {
-            result.addWarning("PNR: " + warning);
-        }
-
-        return messages;
-    }
-
-    /**
-     * Convert PNR message to EdifactMessage for compatibility with existing system
-     */
-    private EdifactMessage convertPnrToEdifactMessage(com.l3.logparser.pnr.model.PnrMessage pnrMessage) {
-        EdifactMessage edifactMessage = new EdifactMessage();
-
-        edifactMessage.setMessageId(pnrMessage.getMessageId());
-        edifactMessage.setPartNumber(pnrMessage.getPartNumber());
-        edifactMessage.setLastPart(pnrMessage.isLastPart());
-        edifactMessage.setPartIndicator(pnrMessage.getPartIndicator());
-        edifactMessage.setMessageType(pnrMessage.getMessageType());
-        edifactMessage.setRawContent(pnrMessage.getRawContent());
-        edifactMessage.setDirection(pnrMessage.getDirection()); // Set direction
-
-        // Convert PNR flight details to API flight details if available
-        if (pnrMessage.getFlightDetails() != null) {
-            com.l3.logparser.pnr.model.PnrFlightDetails pnrFlight = pnrMessage.getFlightDetails();
-            FlightDetails flightDetails = new FlightDetails(
-                pnrFlight.getFullFlightNumber(),
-                pnrFlight.getDepartureAirport(),
-                pnrFlight.getArrivalAirport(),
-                pnrFlight.getDepartureDate(),
-                pnrFlight.getDepartureTime(),
-                pnrFlight.getArrivalDate(),
-                pnrFlight.getArrivalTime(),
-                true // Assume PNR data is passenger data
-            );
-            edifactMessage.setFlightDetails(flightDetails);
-            edifactMessage.setFlightNumber(pnrFlight.getFullFlightNumber());
-        }
-
-        return edifactMessage;
-    }
-
     /**
      * Find log files matching a pattern in the directory
      */
