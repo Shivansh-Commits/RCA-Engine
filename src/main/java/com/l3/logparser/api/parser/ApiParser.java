@@ -5,6 +5,7 @@ import com.l3.logparser.api.model.FlightDetails;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /**
  * Parser for EDIFACT messages found in log files
@@ -111,492 +112,386 @@ public class ApiParser {
         return true; // Always return true so processing can continue
     }
 
-    /**
-     * Extract EDIFACT message from log content
-     */
-    public List<EdifactMessage> parseLogContent(String logContent, String targetFlightNumber) {
-        return parseLogContent(logContent, targetFlightNumber, false, null);
-    }
 
     public List<EdifactMessage> parseLogContent(String logContent, String targetFlightNumber, boolean debugMode, Consumer<String> debugLogger) {
         List<EdifactMessage> messages = new ArrayList<>();
         String[] lines = logContent.split("\\r?\\n");
 
-        boolean inMessage = false;
-        StringBuilder currentMessage = new StringBuilder();
-        EdifactMessage currentEdifactMessage = null;
-        int lineNumber = 0;
-        int foundMessages = 0;
+        // First stage: Extract complete message boundaries
+        List<String> rawMessages = extractRawMessages(lines, debugMode, debugLogger);
 
-        // Store UNA segment for current message being processed
-        String currentUnaSegment = null;
-
-        for (String line : lines) {
-            lineNumber++;
-            // ENHANCED FIX: Use robust carriage return cleaning method
-            line = cleanCarriageReturns(line);
-
-            // Check for start of EDIFACT message with $STX$UNA
-            if (line.contains("$STX$UNA")) {
-                if (debugMode && debugLogger != null) {
-                    int unaIndex = line.indexOf("$STX$UNA");
-                    String debugLine = line.substring(unaIndex);
-                    debugLogger.accept("[Line " + lineNumber + "] Found potential message start with $STX$UNA: " + debugLine.substring(0, Math.min(debugLine.length(), 200)));
-                }
-
-                // Save previous message if exists
-                if (currentEdifactMessage != null && currentMessage.length() > 0) {
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                }
-
-                // Start new message
-                String unaLine = line.substring(line.indexOf("$STX$") + 5);
-
-                // ENHANCED FIX: Use robust carriage return cleaning method
-                unaLine = cleanCarriageReturns(unaLine);
-
-                boolean unaParseSuccess = parseUNA(unaLine);
-
-                // Store UNA segment for this message
-                if (unaLine.startsWith("UNA") && unaLine.length() >= 9) {
-                    currentUnaSegment = unaLine.substring(0, 9);
-                }
-
-                currentMessage = new StringBuilder();
-                currentEdifactMessage = new EdifactMessage();
-                inMessage = true;
-
-                // Process the embedded EDIFACT message within the UNA line ONLY if there's substantial content
-                // Check for substantial EDIFACT content (more than just terminators and whitespace)
-                String edifactContent = unaLine.length() >= 9 ? unaLine.substring(9).trim() : "";
-                if (unaParseSuccess && edifactContent.length() > 10 &&
-                    (edifactContent.contains("UNB") || edifactContent.contains("UNH") || edifactContent.contains("TDT"))) {
-                    processEmbeddedEdifactMessage(unaLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
-                    // Reset after processing embedded message
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = null;
-                    currentUnaSegment = null;
-                    inMessage = false;
-                } else {
-                    // If not processing as embedded, add the UNA line to buffer for multi-line processing
-                    currentMessage.append(unaLine).append("\n");
-                }
-            }
-            // Check for start of EDIFACT message with $STX$UNB (no UNA header, use default separators)
-            else if (line.contains("$STX$UNB")) {
-                if (debugMode && debugLogger != null) {
-                    int unbIndex = line.indexOf("$STX$UNB");
-                    String debugLine = line.substring(unbIndex);
-                    debugLogger.accept("[Line " + lineNumber + "] Found potential message start with $STX$UNB: " + debugLine.substring(0, Math.min(debugLine.length(), 200)));
-                }
-
-                // Save previous message if exists
-                if (currentEdifactMessage != null && currentMessage.length() > 0) {
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                }
-
-                // Start new message with default separators (no UNA segment)
-                String unbLine = line.substring(line.indexOf("$STX$") + 5);
-
-                // ENHANCED FIX: Use robust carriage return cleaning method
-                unbLine = cleanCarriageReturns(unbLine);
-
-                setDefaultSeparators(); // Use default EDIFACT separators for UNB messages
-
-                currentMessage = new StringBuilder();
-                currentEdifactMessage = new EdifactMessage();
-                currentUnaSegment = null; // No UNA segment for UNB messages
-                inMessage = true;
-
-                // Process the embedded EDIFACT message within the UNB line ONLY if there's substantial content
-                // Check for substantial EDIFACT content (more than just terminators and whitespace)
-                String edifactContent = unbLine.trim();
-                if (edifactContent.length() > 10 &&
-                    (edifactContent.contains("UNB") || edifactContent.contains("UNH") || edifactContent.contains("TDT"))) {
-                    processEmbeddedEdifactMessage(unbLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
-                    // Reset after processing embedded message
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = null;
-                    currentUnaSegment = null;
-                    inMessage = false;
-                } else {
-                    // If not processing as embedded, add the UNB line to buffer for multi-line processing
-                    currentMessage.append(unbLine).append("\n");
-                }
-            }
-            // Check for MessageForwarder INFO logs containing EDIFACT messages (with UNA headers)
-            else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR") &&
-                    line.contains("Message body [UNA")) {
-
-                // Save previous message if exists
-                if (currentEdifactMessage != null && currentMessage.length() > 0) {
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                }
-
-                // Extract EDIFACT content from MessageForwarder log
-                int messageBodyStart = line.indexOf("Message body [");
-                if (messageBodyStart != -1) {
-                    String edifactContent = line.substring(messageBodyStart + "Message body [".length());
-                    if (edifactContent.endsWith("]")) {
-                        edifactContent = edifactContent.substring(0, edifactContent.length() - 1);
-                    }
-
-                    // ENHANCED FIX: Clean carriage returns from MessageForwarder content
-                    edifactContent = cleanCarriageReturns(edifactContent);
-
-                    // Extract UNA segment from MessageForwarder content
-                    if (edifactContent.startsWith("UNA") && edifactContent.length() >= 9) {
-                        currentUnaSegment = edifactContent.substring(0, 9);
-                    }
-
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = new EdifactMessage();
-                    currentEdifactMessage.setMessageType("OUTPUT");
-                    inMessage = true;
-
-                    // Process the MessageForwarder EDIFACT content
-                    processMessageForwarderEdifact(edifactContent, currentMessage, currentEdifactMessage, messages, targetFlightNumber,false,null);
-                    // Reset after processing MessageForwarder message
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = null;
-                    currentUnaSegment = null;
-                    inMessage = false;
-                }
-            }
-            // Check for MessageForwarder INFO logs containing EDIFACT messages (with UNB headers - no UNA)
-            else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR") &&
-                    line.contains("Message body [UNB")) {
-
-                // Save previous message if exists
-                if (currentEdifactMessage != null && currentMessage.length() > 0) {
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                }
-
-                // Extract EDIFACT content from MessageForwarder log
-                int messageBodyStart = line.indexOf("Message body [");
-                if (messageBodyStart != -1) {
-                    String edifactContent = line.substring(messageBodyStart + "Message body [".length());
-                    if (edifactContent.endsWith("]")) {
-                        edifactContent = edifactContent.substring(0, edifactContent.length() - 1);
-                    }
-
-                    // ENHANCED FIX: Clean carriage returns from MessageForwarder content
-                    edifactContent = cleanCarriageReturns(edifactContent);
-
-                    // Use default separators for UNB messages (no UNA header)
-                    setDefaultSeparators();
-
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = new EdifactMessage();
-                    currentEdifactMessage.setMessageType("OUTPUT");
-                    currentUnaSegment = null; // No UNA segment for UNB messages
-                    inMessage = true;
-
-                    // Process the MessageForwarder EDIFACT content
-                    processMessageForwarderEdifact(edifactContent, currentMessage, currentEdifactMessage, messages, targetFlightNumber,false,null);
-                    // Reset after processing MessageForwarder message
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = null;
-                    currentUnaSegment = null;
-                    inMessage = false;
-                }
-            }
-            // Check for WARN logs with "Failed to parse API message" containing EDIFACT with UNA headers
-            else if (line.contains("Failed to parse API message") && line.contains("[UNA")) {
-
-                // Save previous message if exists
-                if (currentEdifactMessage != null && currentMessage.length() > 0) {
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                }
-
-                // Extract UNA part from the log message
-                int unaStartIndex = line.indexOf("[UNA");
-                if (unaStartIndex != -1) {
-                    String unaLine = line.substring(unaStartIndex + 1);
-                    // Remove closing bracket if present
-                    if (unaLine.endsWith("]")) {
-                        unaLine = unaLine.substring(0, unaLine.length() - 1);
-                    }
-
-                    // ENHANCED FIX: Use robust carriage return cleaning method
-                    unaLine = cleanCarriageReturns(unaLine);
-
-                    boolean unaParseSuccess = parseUNA(unaLine);
-
-                    // Store UNA segment for this message
-                    if (unaLine.startsWith("UNA") && unaLine.length() >= 9) {
-                        currentUnaSegment = unaLine.substring(0, 9);
-                    }
-
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = new EdifactMessage();
-                    inMessage = true;
-
-                    // Process embedded message only if there's substantial EDIFACT content
-                    String edifactContent = unaLine.length() >= 9 ? unaLine.substring(9).trim() : "";
-                    if (unaParseSuccess && edifactContent.length() > 10 &&
-                        (edifactContent.contains("UNB") || edifactContent.contains("UNH") || edifactContent.contains("TDT"))) {
-                        processEmbeddedEdifactMessage(unaLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
-                        // Reset after processing embedded message
-                        currentMessage = new StringBuilder();
-                        currentEdifactMessage = null;
-                        currentUnaSegment = null;
-                        inMessage = false;
-                    } else {
-                        // If not processing as embedded, add the UNA line to buffer for multi-line processing
-                        currentMessage.append(unaLine).append("\n");
-                    }
-                }
-            }
-            // Check for WARN logs with "Failed to parse API message" containing EDIFACT with UNB headers (no UNA)
-            else if (line.contains("Failed to parse API message") && line.contains("[UNB")) {
-
-                // Save previous message if exists
-                if (currentEdifactMessage != null && currentMessage.length() > 0) {
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                }
-
-                // Extract UNB part from the log message
-                int unbStartIndex = line.indexOf("[UNB");
-                if (unbStartIndex != -1) {
-                    String unbLine = line.substring(unbStartIndex + 1);
-                    // Remove closing bracket if present
-                    if (unbLine.endsWith("]")) {
-                        unbLine = unbLine.substring(0, unbLine.length() - 1);
-                    }
-
-                    // ENHANCED FIX: Use robust carriage return cleaning method
-                    unbLine = cleanCarriageReturns(unbLine);
-
-                    // Use default separators for UNB messages
-                    setDefaultSeparators();
-
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = new EdifactMessage();
-                    currentUnaSegment = null; // No UNA segment for UNB messages
-                    inMessage = true;
-
-                    // Process embedded message only if there's substantial EDIFACT content
-                    String edifactContent = unbLine.trim();
-                    if (edifactContent.length() > 10 &&
-                        (edifactContent.contains("UNB") || edifactContent.contains("UNH") || edifactContent.contains("TDT"))) {
-                        processEmbeddedEdifactMessage(unbLine, currentMessage, currentEdifactMessage, messages, targetFlightNumber);
-                        // Reset after processing embedded message
-                        currentMessage = new StringBuilder();
-                        currentEdifactMessage = null;
-                        currentUnaSegment = null;
-                        inMessage = false;
-                    } else {
-                        // If not processing as embedded, add the UNB line to buffer for multi-line processing
-                        currentMessage.append(unbLine).append("\n");
-                    }
-                }
-            }
-            // Check for WARN logs with "Failed to parse API message" starting a multi-line block
-            else if (line.contains("Failed to parse API message") && line.contains("[")) {
-                // Save previous message if exists
-                if (currentEdifactMessage != null && currentMessage.length() > 0) {
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                }
-
-                currentMessage = new StringBuilder();
-                currentEdifactMessage = new EdifactMessage();
-                currentUnaSegment = null; // Reset UNA segment
-                inMessage = true;
-
-                // Extract and include UNA segment from the warning line
-                String contentAfterBracket = "";
-                int bracketIndex = line.indexOf("[");
-                if (bracketIndex != -1 && bracketIndex < line.length() - 1) {
-                    contentAfterBracket = line.substring(bracketIndex + 1).trim();
-                    if (!contentAfterBracket.isEmpty()) {
-                        // Check if this line contains UNA segment
-                        if (contentAfterBracket.startsWith("UNA")) {
-                            if (debugMode && debugLogger != null) {
-                                debugLogger.accept("Found UNA segment: " + contentAfterBracket.substring(0, Math.min(contentAfterBracket.length(), 200)));
-                            }
-                            // Parse UNA to get separators and store the segment
-                            parseUNA(contentAfterBracket);
-                            if (contentAfterBracket.length() >= 9) {
-                                currentUnaSegment = contentAfterBracket.substring(0, 9);
-                            }
-                            // Store the UNA segment at the beginning
-                            currentMessage.append(contentAfterBracket).append("\n");
-                        } else {
-                            // Non-UNA content, add it normally
-                            currentMessage.append(contentAfterBracket).append("\n");
-                        }
-                    }
-                }
-            }
-            // Check for standalone UNA line
-            else if (line.startsWith("UNA") && !inMessage) {
-                if (debugMode && debugLogger != null) {
-                    debugLogger.accept("[Line " + lineNumber + "] Found standalone UNA segment: " + line.substring(0, Math.min(line.length(), 200)));
-                }
-                boolean unaParseSuccess = parseUNA(line);
-
-                if (unaParseSuccess) {
-                    currentMessage = new StringBuilder();
-                    currentEdifactMessage = new EdifactMessage();
-                    // Store UNA segment
-                    if (line.length() >= 9) {
-                        currentUnaSegment = line.substring(0, 9);
-                    }
-                    inMessage = true;
-                    currentMessage.append(line).append("\n");
-                }
-            } else if (inMessage && (line.startsWith("UN") || line.contains(String.valueOf(elementSeparator)))) {
-                // ENHANCED FIX: Use robust carriage return cleaning method
-                String cleanedLine = cleanCarriageReturns(line);
-
-                // This looks like an EDIFACT segment
-                currentMessage.append(cleanedLine).append("\n");
-
-                // Parse UNH segment for message details
-                if (cleanedLine.startsWith("UNH" + elementSeparator)) {
-                    parseUNH(cleanedLine, currentEdifactMessage);
-                }
-
-                // Parse flight details from various segments
-                if (currentEdifactMessage != null) {
-                    parseFlightDetails(cleanedLine, currentEdifactMessage);
-                }
-
-                // Check for end of message (UNZ segment typically ends EDIFACT)
-                if (cleanedLine.startsWith("UNZ" + elementSeparator)) {
-                    inMessage = false;
-                    // Use finalizeMessageWithUNA instead of direct processing
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                    currentEdifactMessage = null;
-                    currentMessage = new StringBuilder();
-                    currentUnaSegment = null;
-                }
-            } else if (inMessage && line.isEmpty()) {
-                // Empty line might indicate end of message
-                inMessage = false;
-                if (currentEdifactMessage != null && currentMessage.length() > 0) {
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-                    foundMessages++;
-                    currentEdifactMessage = null;
-                    currentMessage = new StringBuilder();
-                    currentUnaSegment = null;
-                }
-            }
+        if (debugMode && debugLogger != null) {
+            debugLogger.accept("Stage 1 complete: Found " + rawMessages.size() + " raw message boundaries");
         }
 
-        // Handle last message if file doesn't end properly
-        if (currentEdifactMessage != null && currentMessage.length() > 0) {
-            finalizeMessageWithUNA(currentMessage, currentEdifactMessage, currentUnaSegment, messages, targetFlightNumber);
-            foundMessages++;
+        // Second stage: Parse each extracted message
+        for (int i = 0; i < rawMessages.size(); i++) {
+            String rawMessage = rawMessages.get(i);
+            if (debugMode && debugLogger != null) {
+                debugLogger.accept("Stage 2: Processing message " + (i + 1) + " of " + rawMessages.size());
+            }
+
+            EdifactMessage parsedMessage = parseRawMessage(rawMessage, debugMode, debugLogger);
+            if (parsedMessage != null && matchesFlightCriteria(parsedMessage, targetFlightNumber)) {
+                messages.add(parsedMessage);
+            }
         }
 
         if (debugMode && debugLogger != null) {
-            debugLogger.accept("Finished parsing log content. Total messages found: " + messages.size());
+            debugLogger.accept("Parsing complete. Total valid messages: " + messages.size());
         }
         return messages;
     }
 
     /**
-     * Process embedded EDIFACT message from UNA line
+     * Stage 1: Extract raw EDIFACT messages from log content
+     * Finds message boundaries from start patterns to UNZ segments
      */
-    private void processEmbeddedEdifactMessage(String unaLine, StringBuilder currentMessage,
-                                               EdifactMessage currentEdifactMessage,
-                                               List<EdifactMessage> messages,
-                                               String targetFlightNumber) {
+    private List<String> extractRawMessages(String[] lines, boolean debugMode, Consumer<String> debugLogger) {
+        List<String> rawMessages = new ArrayList<>();
+        StringBuilder currentRawMessage = new StringBuilder();
+        boolean inMessage = false;
+        String messageType = null;
+        int lineNumber = 0;
 
-        // STORE THE COMPLETE UNA SEGMENT FOR LATER USE
-        String unaSegment = null;
-        if (unaLine.startsWith("UNA") && unaLine.length() >= 9) {
-            // Extract the complete UNA segment (UNA + 6 separators)
-            unaSegment = unaLine.substring(0, 9);
-        }
+        for (String line : lines) {
+            lineNumber++;
+            line = cleanCarriageReturns(line);
 
-        // Extract the EDIFACT content after the UNA header (UNA + 6 separators = 9 chars)
-        String edifactContent = unaLine.length() >= 9 ? unaLine.substring(9) : "";
+            // Check for various start patterns
+            String startPattern = detectMessageStart(line);
 
-        // ENHANCED FIX: Use robust carriage return cleaning method
-        edifactContent = cleanCarriageReturns(edifactContent);
-
-        // Split the EDIFACT content by the terminator separator to get individual segments
-        String[] segments = edifactContent.split("\\" + terminatorSeparator);
-
-        for (String segment : segments) {
-            // ENHANCED FIX: Use robust carriage return cleaning method
-            segment = cleanCarriageReturns(segment);
-            if (!segment.isEmpty()) {
-                currentMessage.append(segment).append(terminatorSeparator).append("\n");
-
-                // Parse different segment types
-                if (segment.startsWith("UNH" + elementSeparator)) {
-                    parseUNH(segment + terminatorSeparator, currentEdifactMessage);
+            if (startPattern != null) {
+                // Save previous message if exists
+                if (inMessage && currentRawMessage.length() > 0) {
+                    String rawMsg = currentRawMessage.toString().trim();
+                    if (!rawMsg.isEmpty()) {
+                        rawMessages.add(rawMsg);
+                        if (debugMode && debugLogger != null) {
+                            debugLogger.accept("Extracted raw message " + rawMessages.size() + " (ended by new start pattern)");
+                        }
+                    }
                 }
 
-                if (currentEdifactMessage != null) {
-                    parseFlightDetails(segment + terminatorSeparator, currentEdifactMessage);
+                // Start new message
+                String extractedContent = extractEdifactContent(line, startPattern);
+                if (!extractedContent.isEmpty()) {
+                    currentRawMessage = new StringBuilder();
+                    currentRawMessage.append(extractedContent);
+                    inMessage = true;
+                    messageType = determineMessageType(startPattern, line);
+
+                    if (debugMode && debugLogger != null) {
+                        debugLogger.accept("[Line " + lineNumber + "] Started new message with pattern: " + startPattern);
+                    }
+                }
+            }
+            // Continue building message if we're inside one
+            else if (inMessage) {
+                // Add line to current message if it looks like EDIFACT content
+                if (isEdifactContent(line)) {
+                    currentRawMessage.append("\n").append(line);
                 }
 
-                // Check for end of message
-                if (segment.startsWith("UNZ" + elementSeparator)) {
-                    // FINALIZE MESSAGE WITH UNA SEGMENT CHECK
-                    finalizeMessageWithUNA(currentMessage, currentEdifactMessage, unaSegment, messages, targetFlightNumber);
-                    return; // Exit after finalizing
+                // Check for message end (UNZ segment)
+                if (line.contains("UNZ")) {
+                    inMessage = false;
+                    String rawMsg = currentRawMessage.toString().trim();
+                    if (!rawMsg.isEmpty()) {
+                        rawMessages.add(rawMsg);
+                        if (debugMode && debugLogger != null) {
+                            debugLogger.accept("Extracted raw message " + rawMessages.size() + " (ended by UNZ)");
+                        }
+                    }
+                    currentRawMessage = new StringBuilder();
+                    messageType = null;
                 }
             }
         }
 
-        // If we didn't find UNZ, end the message anyway for single-line embedded messages
-        if (currentEdifactMessage != null && !currentMessage.toString().isEmpty()) {
-            boolean messageAlreadyAdded = false;
-            for (EdifactMessage msg : messages) {
-                if (msg.getMessageId() != null && msg.getMessageId().equals(currentEdifactMessage.getMessageId())) {
-                    messageAlreadyAdded = true;
-                    break;
+        // Handle last message if file doesn't end with UNZ
+        if (inMessage && currentRawMessage.length() > 0) {
+            String rawMsg = currentRawMessage.toString().trim();
+            if (!rawMsg.isEmpty()) {
+                rawMessages.add(rawMsg);
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("Extracted final raw message " + rawMessages.size() + " (EOF)");
                 }
             }
+        }
 
-            if (!messageAlreadyAdded) {
-                // FINALIZE MESSAGE WITH UNA SEGMENT CHECK
-                finalizeMessageWithUNA(currentMessage, currentEdifactMessage, unaSegment, messages, targetFlightNumber);
-            }
+        return rawMessages;
+    }
+
+    /**
+     * Detect different types of message start patterns
+     */
+    private String detectMessageStart(String line) {
+        if (line.contains("$STX$UNA")) {
+            return "$STX$UNA";
+        } else if (line.contains("$STX$UNB")) {
+            return "$STX$UNB";
+        } else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR")
+                   && line.contains("Message body [UNA")) {
+            return "MessageForwarder_UNA";
+        } else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR")
+                   && line.contains("Message body [UNB")) {
+            return "MessageForwarder_UNB";
+        } else if (line.contains("Failed to parse API message") && line.contains("[UNA")) {
+            return "WARN_UNA";
+        } else if (line.contains("Failed to parse API message") && line.contains("[UNB")) {
+            return "WARN_UNB";
+        } else if (line.contains("Failed to parse API message") && line.contains("[")) {
+            return "WARN_MULTILINE";
+        } else if (line.startsWith("UNA")) {
+            return "STANDALONE_UNA";
+        }
+        return null;
+    }
+
+    /**
+     * Extract EDIFACT content based on the start pattern
+     */
+    private String extractEdifactContent(String line, String startPattern) {
+        switch (startPattern) {
+            case "$STX$UNA":
+                int stxUnaIndex = line.indexOf("$STX$UNA");
+                return line.substring(stxUnaIndex + 5);
+
+            case "$STX$UNB":
+                int stxUnbIndex = line.indexOf("$STX$UNB");
+                return line.substring(stxUnbIndex + 5);
+
+            case "MessageForwarder_UNA":
+            case "MessageForwarder_UNB":
+                int messageBodyStart = line.indexOf("Message body [");
+                if (messageBodyStart != -1) {
+                    String content = line.substring(messageBodyStart + "Message body [".length());
+                    if (content.endsWith("]")) {
+                        content = content.substring(0, content.length() - 1);
+                    }
+                    return content;
+                }
+                return "";
+
+            case "WARN_UNA":
+                int unaStartIndex = line.indexOf("[UNA");
+                if (unaStartIndex != -1) {
+                    String content = line.substring(unaStartIndex + 1);
+                    if (content.endsWith("]")) {
+                        content = content.substring(0, content.length() - 1);
+                    }
+                    return content;
+                }
+                return "";
+
+            case "WARN_UNB":
+                int unbStartIndex = line.indexOf("[UNB");
+                if (unbStartIndex != -1) {
+                    String content = line.substring(unbStartIndex + 1);
+                    if (content.endsWith("]")) {
+                        content = content.substring(0, content.length() - 1);
+                    }
+                    return content;
+                }
+                return "";
+
+            case "WARN_MULTILINE":
+                int bracketIndex = line.indexOf("[");
+                if (bracketIndex != -1 && bracketIndex < line.length() - 1) {
+                    return line.substring(bracketIndex + 1).trim();
+                }
+                return "";
+
+            case "STANDALONE_UNA":
+                return line;
+
+            default:
+                return "";
         }
     }
 
     /**
-     * Finalize message by ensuring UNA segment is at the beginning
+     * Determine message type based on pattern and line content
      */
-    private void finalizeMessageWithUNA(StringBuilder currentMessage, EdifactMessage currentEdifactMessage,
-                                       String unaSegment, List<EdifactMessage> messages, String targetFlightNumber) {
-        if (currentEdifactMessage == null || currentMessage.length() == 0) {
-            return;
+    private String determineMessageType(String startPattern, String line) {
+        if (startPattern.startsWith("MessageForwarder")) {
+            return "OUTPUT";
+        }
+        return "INPUT"; // Default for other patterns
+    }
+
+    /**
+     * Check if a line contains EDIFACT content
+     */
+    private boolean isEdifactContent(String line) {
+        if (line == null || line.trim().isEmpty()) {
+            return false;
         }
 
-        String messageContent = currentMessage.toString();
+        // Look for EDIFACT segment patterns
+        return line.startsWith("UN") ||
+               line.startsWith("BGM") ||
+               line.startsWith("TDT") ||
+               line.startsWith("LOC") ||
+               line.startsWith("DTM") ||
+               line.startsWith("NAD") ||
+               line.contains("+") || // Element separator
+               line.contains("'"); // Terminator separator
+    }
 
-        // Check if message starts with UNA
-        if (!messageContent.trim().startsWith("UNA")) {
-            // If we have a stored UNA segment, prepend it
-            if (unaSegment != null && !unaSegment.isEmpty()) {
-                messageContent = unaSegment + "\n" + messageContent;
+    /**
+     * Stage 2: Parse raw EDIFACT message character by character
+     * Split into segments using separators and extract data
+     */
+    private EdifactMessage parseRawMessage(String rawMessage, boolean debugMode, Consumer<String> debugLogger) {
+        if (rawMessage == null || rawMessage.trim().isEmpty()) {
+            return null;
+        }
+
+        EdifactMessage message = new EdifactMessage();
+
+        try {
+            // Step 1: Parse UNA header to get separators (if present)
+            String workingMessage = rawMessage;
+            if (rawMessage.startsWith("UNA")) {
+                parseUNA(rawMessage);
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("Parsed UNA header - separators extracted");
+                }
             } else {
-                // Fallback: construct UNA segment from current separators
-                String constructedUNA = "UNA" + subElementSeparator + elementSeparator + decimalSeparator +
-                                       releaseIndicator + reservedSeparator + terminatorSeparator;
-                messageContent = constructedUNA + "\n" + messageContent;
+                // No UNA header, use defaults
+                setDefaultSeparators();
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("No UNA header found - using default separators");
+                }
+            }
+
+            // Step 2: Split message into segments character by character
+            List<String> segments = splitIntoSegments(workingMessage);
+
+            if (debugMode && debugLogger != null) {
+                debugLogger.accept("Split into " + segments.size() + " segments");
+            }
+
+            // Step 3: Process each segment to extract data
+            for (String segment : segments) {
+                processSegment(segment, message, debugMode, debugLogger);
+            }
+
+            // Step 4: Set the complete raw content
+            message.setRawContent(rawMessage);
+
+            return message;
+
+        } catch (Exception e) {
+            if (debugMode && debugLogger != null) {
+                debugLogger.accept("Error parsing raw message: " + e.getMessage());
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Split raw message into segments using the terminator separator
+     * Reads character by character to handle escape sequences properly
+     */
+    private List<String> splitIntoSegments(String rawMessage) {
+        List<String> segments = new ArrayList<>();
+        StringBuilder currentSegment = new StringBuilder();
+
+        char[] chars = rawMessage.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            char c = chars[i];
+
+            // Check for release/escape character
+            if (c == releaseIndicator && i + 1 < chars.length) {
+                // Next character is escaped, add both characters
+                currentSegment.append(c);
+                currentSegment.append(chars[i + 1]);
+                i++; // Skip next character
+            }
+            // Check for segment terminator
+            else if (c == terminatorSeparator) {
+                // End of segment
+                String segment = currentSegment.toString().trim();
+                if (!segment.isEmpty()) {
+                    segments.add(segment);
+                }
+                currentSegment = new StringBuilder();
+            }
+            // Regular character
+            else {
+                currentSegment.append(c);
             }
         }
 
-        currentEdifactMessage.setRawContent(messageContent);
-        if (matchesFlightCriteria(currentEdifactMessage, targetFlightNumber)) {
-            messages.add(currentEdifactMessage);
+        // Add final segment if exists
+        String finalSegment = currentSegment.toString().trim();
+        if (!finalSegment.isEmpty()) {
+            segments.add(finalSegment);
+        }
+
+        return segments;
+    }
+
+    /**
+     * Process individual segment to extract data
+     */
+    private void processSegment(String segment, EdifactMessage message, boolean debugMode, Consumer<String> debugLogger) {
+        if (segment == null || segment.trim().isEmpty()) {
+            return;
+        }
+
+        segment = segment.trim();
+
+        try {
+            // UNH segment - message header
+            if (segment.startsWith("UNH" + elementSeparator)) {
+                parseUNH(segment, message);
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("Processed UNH segment");
+                }
+            }
+            // BGM segment - beginning of message
+            else if (segment.startsWith("BGM" + elementSeparator)) {
+                parseFlightDetails(segment, message);
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("Processed BGM segment");
+                }
+            }
+            // TDT segment - transport details
+            else if (segment.startsWith("TDT" + elementSeparator)) {
+                parseFlightDetails(segment, message);
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("Processed TDT segment");
+                }
+            }
+            // LOC segment - location
+            else if (segment.startsWith("LOC" + elementSeparator)) {
+                parseFlightDetails(segment, message);
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("Processed LOC segment");
+                }
+            }
+            // DTM segment - date/time
+            else if (segment.startsWith("DTM" + elementSeparator)) {
+                parseFlightDetails(segment, message);
+                if (debugMode && debugLogger != null) {
+                    debugLogger.accept("Processed DTM segment");
+                }
+            }
+            // Other segments can be added as needed
+            else {
+                if (debugMode && debugLogger != null) {
+                    String segmentType = segment.length() >= 3 ? segment.substring(0, 3) : segment;
+                    debugLogger.accept("Skipped segment type: " + segmentType);
+                }
+            }
+        } catch (Exception e) {
+            if (debugMode && debugLogger != null) {
+                debugLogger.accept("Error processing segment: " + segment.substring(0, Math.min(segment.length(), 50)) + " - " + e.getMessage());
+            }
         }
     }
 
@@ -607,9 +502,14 @@ public class ApiParser {
         // ENHANCED FIX: Use robust carriage return cleaning method
         line = cleanCarriageReturns(line);
 
+        // Ensure the segment ends with terminator for consistent parsing
+        if (!line.endsWith(String.valueOf(terminatorSeparator))) {
+            line = line + terminatorSeparator;
+        }
+
         try {
             // Split by element separator
-            String[] segments = line.split("\\" + elementSeparator);
+            String[] segments = line.split(Pattern.quote(String.valueOf(elementSeparator)));
 
             if (segments.length >= 4) {
                 // Extract message reference (segment 1)
@@ -789,6 +689,11 @@ public class ApiParser {
         // ENHANCED FIX: Use robust carriage return cleaning method
         segment = cleanCarriageReturns(segment);
 
+        // Ensure the segment ends with terminator for consistent parsing
+        if (!segment.endsWith(String.valueOf(terminatorSeparator))) {
+            segment = segment + terminatorSeparator;
+        }
+
         if (message.getFlightDetails() == null) {
             message.setFlightDetails(new FlightDetails());
         }
@@ -798,7 +703,7 @@ public class ApiParser {
         try {
             // Parse BGM segment for data type (745 = passenger, 250 = crew)
             if (segment.startsWith("BGM" + elementSeparator)) {
-                String[] parts = segment.split("\\" + elementSeparator);
+                String[] parts = segment.split(Pattern.quote(String.valueOf(elementSeparator)));
                 if (parts.length >= 2) {
                     String bgmCode = parts[1].replace(String.valueOf(terminatorSeparator), "").trim();
                     if ("745".equals(bgmCode)) {
@@ -814,7 +719,7 @@ public class ApiParser {
 
             // Parse TDT segment for flight number
             else if (segment.startsWith("TDT" + elementSeparator)) {
-                String[] parts = segment.split("\\" + elementSeparator);
+                String[] parts = segment.split(Pattern.quote(String.valueOf(elementSeparator)));
                 if (parts.length >= 3) {
                     String flightNumber = parts[2].replace(String.valueOf(terminatorSeparator), "").trim();
                     details.setFlightNumber(flightNumber);
@@ -824,7 +729,7 @@ public class ApiParser {
 
             // Parse LOC segments for airports
             else if (segment.startsWith("LOC" + elementSeparator)) {
-                String[] parts = segment.split("\\" + elementSeparator);
+                String[] parts = segment.split(Pattern.quote(String.valueOf(elementSeparator)));
                 if (parts.length >= 3) {
                     String locType = parts[1];
                     String airport = parts[2].replace(String.valueOf(terminatorSeparator), "").trim();
@@ -842,10 +747,10 @@ public class ApiParser {
 
             // Parse DTM segments for dates and times
             else if (segment.startsWith("DTM" + elementSeparator)) {
-                String[] parts = segment.split("\\" + elementSeparator);
+                String[] parts = segment.split(Pattern.quote(String.valueOf(elementSeparator)));
                 if (parts.length >= 2) {
                     String dtmInfo = parts[1];
-                    String[] dtmParts = dtmInfo.split(String.valueOf(subElementSeparator));
+                    String[] dtmParts = dtmInfo.split(Pattern.quote(String.valueOf(subElementSeparator)));
 
                     if (dtmParts.length >= 2) {
                         String dtmType = dtmParts[0];
@@ -898,103 +803,6 @@ public class ApiParser {
     }
 
     /**
-     * Process EDIFACT content from MessageForwarder logs
-     * MessageForwarder logs contain EDIFACT in a different format with newlines as literal "\n"
-     */
-    private void processMessageForwarderEdifact(String edifactContent, StringBuilder currentMessage,
-                                                EdifactMessage currentEdifactMessage,
-                                                List<EdifactMessage> messages,
-                                                String targetFlightNumber,
-                                                boolean debugMode, Consumer<String> debugLogger) {
-        // Extract UNA segment from MessageForwarder content for preservation
-        String unaSegment = null;
-        if (edifactContent.startsWith("UNA") && edifactContent.length() >= 9) {
-            unaSegment = edifactContent.substring(0, 9);
-        }
-
-        // MessageForwarder logs often have literal \n characters instead of actual newlines
-        // Replace them with actual newlines for proper parsing
-        String normalizedContent = edifactContent.replace("\\n", "\n");
-
-        // ENHANCED FIX: Use robust carriage return cleaning method
-        normalizedContent = cleanCarriageReturns(normalizedContent);
-
-        // ENHANCED: Also handle cases where the entire message is on a single line
-        // Split by common EDIFACT segment terminators first
-        if (!normalizedContent.contains("\n")) {
-            // Single line - split by terminator separator to create segments
-            String[] potentialSegments = normalizedContent.split("\\" + terminatorSeparator);
-            StringBuilder rebuiltContent = new StringBuilder();
-            for (String segment : potentialSegments) {
-                if (!segment.trim().isEmpty()) {
-                    rebuiltContent.append(segment.trim()).append(terminatorSeparator).append("\n");
-                }
-            }
-            normalizedContent = rebuiltContent.toString();
-        }
-
-        // Split into lines/segments for processing
-        String[] segments = normalizedContent.split("\\r?\\n");
-
-        boolean foundUNA = false;
-        boolean foundUNH = false;
-        boolean foundTDT = false;
-
-        for (String segment : segments) {
-            // ENHANCED FIX: Use robust carriage return cleaning method
-            segment = cleanCarriageReturns(segment);
-            if (!segment.isEmpty()) {
-                currentMessage.append(segment);
-                if (!segment.endsWith(String.valueOf(terminatorSeparator))) {
-                    currentMessage.append(terminatorSeparator);
-                }
-                currentMessage.append("\n");
-
-
-                // Parse UNA header to get separators
-                if (segment.startsWith("UNA")) {
-                    parseUNA(segment);
-                    foundUNA = true;
-                }
-
-                // Parse UNH segment for message details
-                else if (segment.startsWith("UNH" + elementSeparator)) {
-                    parseUNH(segment + terminatorSeparator, currentEdifactMessage);
-                    foundUNH = true;
-                }
-
-                // Parse flight details from various segments
-                if (currentEdifactMessage != null) {
-                    parseFlightDetails(segment + terminatorSeparator, currentEdifactMessage);
-
-                    // Track important segments
-                    if (segment.startsWith("TDT" + elementSeparator)) {
-                        foundTDT = true;
-                    }
-                }
-
-                // Check for end of message (UNZ segment typically ends EDIFACT)
-                if (segment.startsWith("UNZ" + elementSeparator)) {
-                    break; // Stop processing segments after UNZ
-                }
-            }
-        }
-
-        // CRITICAL: Set message type as OUTPUT for MessageForwarder messages
-        if (currentEdifactMessage != null) {
-            currentEdifactMessage.setMessageType("OUTPUT");
-        }
-
-        // Complete the MessageForwarder message processing using finalizeMessageWithUNA
-        if (currentEdifactMessage != null && currentMessage.length() > 0) {
-            // Use the same UNA preservation logic as other methods
-            finalizeMessageWithUNA(currentMessage, currentEdifactMessage, unaSegment, messages, targetFlightNumber);
-        } else {
-            System.out.println("MessageForwarder message processing failed - no message or content");
-        }
-    }
-
-    /**
      * Robust cleaning method to remove carriage returns and control characters
      * Handles different encodings and representations of \r characters
      */
@@ -1013,3 +821,4 @@ public class ApiParser {
         return cleaned;
     }
 }
+
