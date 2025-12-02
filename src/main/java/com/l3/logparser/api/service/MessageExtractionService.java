@@ -41,15 +41,6 @@ public class MessageExtractionService {
                                           String departureDate,
                                           String departureAirport,
                                           String arrivalAirport,
-                                          DataType dataType) {
-        return extractMessages(logDirectoryPath, flightNumber, departureDate, departureAirport, arrivalAirport, dataType, true, System.out::println);
-    }
-
-    public ExtractionResult extractMessages(String logDirectoryPath,
-                                          String flightNumber,
-                                          String departureDate,
-                                          String departureAirport,
-                                          String arrivalAirport,
                                           DataType dataType,
                                           boolean debugMode,
                                           Consumer<String> debugLogger) {
@@ -73,14 +64,20 @@ public class MessageExtractionService {
             if (dataType == DataType.API) {
                 allMessages.addAll(extractApiMessages(logDir, flightNumber, result, debugMode, debugLogger));
             }
-
             if (debugMode && debugLogger != null) {
                 debugLogger.accept("Total messages after parsing all files: " + allMessages.size());
             }
 
-            // Remove duplicate messages (same message ID from multiple files)
-            List<EdifactMessage> deduplicatedMessages = removeDuplicateMessages(allMessages);
 
+            // Filter messages based on additional criteria
+            List<EdifactMessage> filteredMessages = filterMessages(allMessages, flightNumber, departureDate, departureAirport, arrivalAirport);
+            if (debugMode && debugLogger != null) {
+                debugLogger.accept("Total messages after filtering: " + filteredMessages.size());
+            }
+
+
+            // Remove duplicate messages (same message ID from multiple files)
+            List<EdifactMessage> deduplicatedMessages = removeDuplicateMessages(filteredMessages);
             if (debugMode && debugLogger != null) {
                 debugLogger.accept("Total messages after deduplication: " + deduplicatedMessages.size());
             }
@@ -88,18 +85,10 @@ public class MessageExtractionService {
             // Analyze part completeness
             analyzePartCompleteness(deduplicatedMessages, flightNumber);
 
-            // Filter messages based on additional criteria
-            List<EdifactMessage> filteredMessages = filterMessages(deduplicatedMessages,
-                    flightNumber, departureDate, departureAirport, arrivalAirport);
-
-            if (debugMode && debugLogger != null) {
-                debugLogger.accept("Total messages after filtering: " + filteredMessages.size());
-            }
-
-            result.setExtractedMessages(filteredMessages);
+            result.setExtractedMessages(deduplicatedMessages);
             result.setSuccess(true);
 
-            if (filteredMessages.isEmpty()) {
+            if (deduplicatedMessages.isEmpty()) {
                 result.addWarning("No messages found matching the specified criteria");
             }
 
