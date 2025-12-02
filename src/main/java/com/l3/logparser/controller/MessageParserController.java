@@ -2,11 +2,12 @@ package com.l3.logparser.controller;
 
 import com.l3.logparser.api.model.EdifactMessage;
 import com.l3.logparser.api.model.FlightDetails;
-import com.l3.logparser.api.service.MessageExtractionService;
+import com.l3.logparser.api.service.MessageParserService;
 import com.l3.logparser.pnr.service.PnrExtractionService;
 import com.l3.logparser.pnr.model.PnrMessage;
 import com.l3.logparser.pnr.model.PnrFlightDetails;
 import com.l3.logparser.enums.DataType;
+import com.l3.logparser.config.AdvancedParserConfig;
 import com.l3.common.util.VersionUtil;
 import com.l3.common.util.ErrorHandler;
 import com.l3.common.util.ErrorCodes;
@@ -15,10 +16,13 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.File;
@@ -40,7 +44,7 @@ import java.util.ResourceBundle;
  * Controller for the Message Extractor UI
  * Handles both API and PNR data extraction
  */
-public class MessageExtractorController implements Initializable {
+public class MessageParserController implements Initializable {
 
     @FXML private TextField logDirectoryField;
     @FXML private Button browseButton;
@@ -56,6 +60,7 @@ public class MessageExtractorController implements Initializable {
     @FXML private Button browseOutputButton;
     @FXML private ToggleButton debugToggleButton;
     @FXML private ToggleButton multiNodeToggleButton;
+    @FXML private Button advancedConfigButton;
 
     // Results area
     @FXML private TableView<MessageTableRow> resultsTable;
@@ -74,15 +79,15 @@ public class MessageExtractorController implements Initializable {
     @FXML private Label summaryLabel;
     @FXML private Label versionLabel;
 
-    private MessageExtractionService messageExtractionService;
+    private MessageParserService messageParserService;
     private PnrExtractionService pnrExtractionService;
-    private MessageExtractionService.ExtractionResult lastResult;
+    private MessageParserService.ExtractionResult lastResult;
     private boolean debugMode = false;
     private boolean multiNodeMode = true;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        messageExtractionService = new MessageExtractionService();
+        messageParserService = new MessageParserService();
         pnrExtractionService = new PnrExtractionService();
         setupTableColumns();
         setupTableSelection();
@@ -117,6 +122,61 @@ public class MessageExtractorController implements Initializable {
             multiNodeToggleButton.setText("Multi-node OFF");
             addLogMessage("Multi-Node mode disabled.");
         }
+    }
+
+    @FXML
+    private void onAdvancedConfig() {
+        try {
+            // Load the advanced configuration dialog FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/l3/rcaengine/api/advanced-config-dialog.fxml"));
+            Scene scene = new Scene(loader.load());
+
+            // Create and configure the dialog stage
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Advanced Parser Configuration");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(advancedConfigButton.getScene().getWindow());
+            dialogStage.setScene(scene);
+            dialogStage.setResizable(true);
+            dialogStage.setMinWidth(900);
+            dialogStage.setMinHeight(700);
+
+            // Get the controller and set the current configuration
+            AdvancedConfigController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+
+            // Load current configuration or create new one
+            AdvancedParserConfig currentConfig = new AdvancedParserConfig();
+            controller.setConfig(currentConfig);
+
+            // Show dialog and wait for result
+            dialogStage.showAndWait();
+
+            // If configuration was saved, update the message extraction service
+            if (controller.isSaved()) {
+                AdvancedParserConfig updatedConfig = controller.getConfig();
+                updateMessageExtractionService(updatedConfig);
+                addLogMessage("Advanced configuration updated successfully.");
+            }
+
+        } catch (Exception e) {
+            addLogMessage("Error opening advanced configuration dialog: " + e.getMessage());
+
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Configuration Error");
+            alert.setHeaderText("Failed to Open Advanced Configuration");
+            alert.setContentText("An error occurred while opening the configuration dialog:\n" + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    /**
+     * Update the message extraction service with new configuration
+     */
+    private void updateMessageExtractionService(AdvancedParserConfig config) {
+        // Update the message extraction service to use the new configuration
+        messageParserService.updateParserConfiguration(config);
+        addLogMessage("Parser configuration updated with new patterns and segment codes.");
     }
 
     private void setupTableColumns() {
@@ -287,17 +347,17 @@ public class MessageExtractorController implements Initializable {
 
         // Create and run extraction task
         final String finalLogDirectory = actualLogDirectory;
-        Task<MessageExtractionService.ExtractionResult> task = new Task<MessageExtractionService.ExtractionResult>() {
+        Task<MessageParserService.ExtractionResult> task = new Task<MessageParserService.ExtractionResult>() {
             @Override
-            protected MessageExtractionService.ExtractionResult call() throws Exception {
+            protected MessageParserService.ExtractionResult call() throws Exception {
                 if (selectedDataType == DataType.PNR) {
                     // Use PNR service for proper filtering and analysis
                     PnrExtractionService.PnrExtractionResult pnrResult = pnrExtractionService.extractPnrMessages(
                         finalLogDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport);
 
                     // Convert PNR result to generic result format
-                    MessageExtractionService.ExtractionResult genericResult =
-                        new MessageExtractionService.ExtractionResult();
+                    MessageParserService.ExtractionResult genericResult =
+                        new MessageParserService.ExtractionResult();
                     genericResult.setRequestedDataType(selectedDataType);
                     genericResult.setSuccess(pnrResult.isSuccess());
 
@@ -316,7 +376,7 @@ public class MessageExtractorController implements Initializable {
                     return genericResult;
                 } else {
                     // Use generic service for other data types
-                    return messageExtractionService.extractMessages(
+                    return messageParserService.extractMessages(
                         finalLogDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport, selectedDataType,
                         debugMode, (msg) -> Platform.runLater(() -> addLogMessage(msg)));
                 }
@@ -526,7 +586,7 @@ public class MessageExtractorController implements Initializable {
             success = pnrExtractionService.saveExtractedMessages(pnrMessages, outputDirectory);
         } else {
             // Use generic service for other message types
-            success = messageExtractionService.saveExtractedMessages(
+            success = messageParserService.saveExtractedMessages(
                 lastResult.getExtractedMessages(), outputDirectory);
         }
 
@@ -619,7 +679,7 @@ public class MessageExtractorController implements Initializable {
         lastResult = null;
     }
 
-    private void displayResults(MessageExtractionService.ExtractionResult result) {
+    private void displayResults(MessageParserService.ExtractionResult result) {
         // Update summary
         String summary = String.format("Found %d messages (%s), %d parts processed from %d files",
             result.getMessageCount(), result.getRequestedDataType().getDisplayName(),

@@ -2,6 +2,8 @@ package com.l3.logparser.api.parser;
 
 import com.l3.logparser.api.model.EdifactMessage;
 import com.l3.logparser.api.model.FlightDetails;
+import com.l3.logparser.config.AdvancedParserConfig;
+import com.l3.logparser.config.ApiPatternConfig;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -23,11 +25,23 @@ public class ApiParser {
     private char reservedSeparator;
     private char terminatorSeparator;
 
+    // Advanced configuration for customizable patterns and codes
+    private AdvancedParserConfig advancedConfig;
+
     /**
-     * Constructor - initialize with default EDIFACT separators
+     * Constructor - initialize with default EDIFACT separators and load configuration
      */
     public ApiParser() {
         setDefaultSeparators();
+        this.advancedConfig = new AdvancedParserConfig();
+    }
+
+    /**
+     * Constructor with custom configuration
+     */
+    public ApiParser(AdvancedParserConfig config) {
+        setDefaultSeparators();
+        this.advancedConfig = config != null ? config : new AdvancedParserConfig();
     }
 
     /**
@@ -224,28 +238,56 @@ public class ApiParser {
     }
 
     /**
-     * Detect different types of message start patterns
+     * Detect different types of message start patterns using configuration
      */
     private String detectMessageStart(String line) {
-        if (line.contains("$STX$UNA")) {
-            return "$STX$UNA";
-        } else if (line.contains("$STX$UNB")) {
-            return "$STX$UNB";
-        } else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR")
-                   && line.contains("Message body [UNA")) {
-            return "MessageForwarder_UNA";
-        } else if (line.contains("INFO ") && line.contains("Forward.BUSINESS_RULES_PROCESSOR")
-                   && line.contains("Message body [UNB")) {
-            return "MessageForwarder_UNB";
-        } else if (line.contains("Failed to parse API message") && line.contains("[UNA")) {
-            return "WARN_UNA";
-        } else if (line.contains("Failed to parse API message") && line.contains("[UNB")) {
-            return "WARN_UNB";
-        } else if (line.contains("Failed to parse API message") && line.contains("[")) {
-            return "WARN_MULTILINE";
-        } else if (line.startsWith("UNA")) {
-            return "STANDALONE_UNA";
+        if (line == null || line.trim().isEmpty()) {
+            return null;
         }
+
+        List<ApiPatternConfig.MessagePattern> patterns = advancedConfig.getApiConfig().getMessageStartPatterns();
+
+        for (ApiPatternConfig.MessagePattern pattern : patterns) {
+            if (!pattern.isEnabled()) {
+                continue; // Skip disabled patterns
+            }
+
+            boolean matches = false;
+
+            switch (pattern.getType()) {
+                case "contains":
+                    matches = line.contains(pattern.getValue());
+                    break;
+
+                case "startsWith":
+                    matches = line.startsWith(pattern.getValue());
+                    break;
+
+                case "multiple":
+                    matches = true; // Start with true, all conditions must match
+                    for (ApiPatternConfig.MessagePattern.Condition condition : pattern.getConditions()) {
+                        boolean conditionMatches = false;
+                        switch (condition.getType()) {
+                            case "contains":
+                                conditionMatches = line.contains(condition.getValue());
+                                break;
+                            case "startsWith":
+                                conditionMatches = line.startsWith(condition.getValue());
+                                break;
+                        }
+                        if (!conditionMatches) {
+                            matches = false;
+                            break;
+                        }
+                    }
+                    break;
+            }
+
+            if (matches) {
+                return pattern.getName();
+            }
+        }
+
         return null;
     }
 
@@ -683,7 +725,7 @@ public class ApiParser {
     }
 
     /**
-     * Parse flight details from EDIFACT segments (TDT, LOC, DTM, BGM)
+     * Parse flight details from EDIFACT segments (TDT, LOC, DTM, BGM) using configuration
      */
     private void parseFlightDetails(String segment, EdifactMessage message) {
         // ENHANCED FIX: Use robust carriage return cleaning method
@@ -699,53 +741,55 @@ public class ApiParser {
         }
 
         FlightDetails details = message.getFlightDetails();
+        ApiPatternConfig.SegmentCodes codes = advancedConfig.getApiConfig().getSegmentCodes();
 
         try {
-            // Parse BGM segment for data type (745 = passenger, 250 = crew)
+            // Parse BGM segment for data type using configurable codes
             if (segment.startsWith("BGM" + elementSeparator)) {
                 String[] parts = segment.split(Pattern.quote(String.valueOf(elementSeparator)));
                 if (parts.length >= 2) {
                     String bgmCode = parts[1].replace(String.valueOf(terminatorSeparator), "").trim();
-                    if ("745".equals(bgmCode)) {
+                    if (codes.getBgmPassengerCode().equals(bgmCode)) {
                         message.setDataType("PASSENGER");
                         details.setPassengerData(true);
                     }
-                    else if ("250".equals(bgmCode)) {
+                    else if (codes.getBgmCrewCode().equals(bgmCode)) {
                         message.setDataType("CREW");
                         details.setPassengerData(false);
                     }
                 }
             }
 
-            // Parse TDT segment for flight number
+            // Parse TDT segment for flight number using configurable position
             else if (segment.startsWith("TDT" + elementSeparator)) {
                 String[] parts = segment.split(Pattern.quote(String.valueOf(elementSeparator)));
-                if (parts.length >= 3) {
-                    String flightNumber = parts[2].replace(String.valueOf(terminatorSeparator), "").trim();
+                int flightPos = codes.getTdtFlightPosition();
+                if (parts.length > flightPos) {
+                    String flightNumber = parts[flightPos].replace(String.valueOf(terminatorSeparator), "").trim();
                     details.setFlightNumber(flightNumber);
                     message.setFlightNumber(flightNumber); // Also set on message directly
                 }
             }
 
-            // Parse LOC segments for airports
+            // Parse LOC segments for airports using configurable codes
             else if (segment.startsWith("LOC" + elementSeparator)) {
                 String[] parts = segment.split(Pattern.quote(String.valueOf(elementSeparator)));
                 if (parts.length >= 3) {
                     String locType = parts[1];
                     String airport = parts[2].replace(String.valueOf(terminatorSeparator), "").trim();
 
-                    if ("125".equals(locType) && details.getDepartureAirport()==null) {
+                    if (codes.getLocDepartureCode().equals(locType) && details.getDepartureAirport()==null) {
                         // Departure airport
                         details.setDepartureAirport(airport);
                     }
-                    else if ("87".equals(locType) && details.getArrivalAirport()==null) {
+                    else if (codes.getLocArrivalCode().equals(locType) && details.getArrivalAirport()==null) {
                         // Arrival airport
                         details.setArrivalAirport(airport);
                     }
                 }
             }
 
-            // Parse DTM segments for dates and times
+            // Parse DTM segments for dates and times using configurable codes
             else if (segment.startsWith("DTM" + elementSeparator)) {
                 String[] parts = segment.split(Pattern.quote(String.valueOf(elementSeparator)));
                 if (parts.length >= 2) {
@@ -756,7 +800,7 @@ public class ApiParser {
                         String dtmType = dtmParts[0];
                         String dateTime = dtmParts[1].replace(String.valueOf(terminatorSeparator), "").trim();
 
-                        if ("189".equals(dtmType) && details.getDepartureDate()==null && details.getDepartureTime()==null) {
+                        if (codes.getDtmDepartureCode().equals(dtmType) && details.getDepartureDate()==null && details.getDepartureTime()==null) {
                             // Departure date/time: format YYMMDDHHMM
                             if (dateTime.length() >= 8) {
                                 String date = dateTime.substring(0, 6); // YYMMDD
@@ -765,7 +809,7 @@ public class ApiParser {
                                 details.setDepartureTime(time);
                             }
                         }
-                        else if ("232".equals(dtmType) && details.getArrivalDate()==null && details.getArrivalTime()==null) {
+                        else if (codes.getDtmArrivalCode().equals(dtmType) && details.getArrivalDate()==null && details.getArrivalTime()==null) {
                             // Arrival date/time: format YYMMDDHHMM
                             if (dateTime.length() >= 8) {
                                 String date = dateTime.substring(0, 6); // YYMMDD
@@ -819,6 +863,20 @@ public class ApiParser {
         cleaned = cleaned.trim(); // Final trim
 
         return cleaned;
+    }
+
+    /**
+     * Get the current advanced parser configuration
+     */
+    public AdvancedParserConfig getAdvancedConfig() {
+        return advancedConfig;
+    }
+
+    /**
+     * Update the advanced parser configuration
+     */
+    public void setAdvancedConfig(AdvancedParserConfig config) {
+        this.advancedConfig = config != null ? config : new AdvancedParserConfig();
     }
 }
 

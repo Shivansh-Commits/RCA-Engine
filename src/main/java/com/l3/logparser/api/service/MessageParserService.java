@@ -4,6 +4,7 @@ import com.l3.logparser.api.model.EdifactMessage;
 import com.l3.logparser.api.model.FlightDetails;
 import com.l3.logparser.api.parser.ApiParser;
 import com.l3.logparser.enums.DataType;
+import com.l3.logparser.config.AdvancedParserConfig;
 
 import java.io.*;
 import java.nio.file.*;
@@ -15,15 +16,25 @@ import java.util.stream.Collectors;
  * Service class for extracting messages from log files
  * Supports both API and PNR data extraction
  */
-public class MessageExtractionService {
+public class MessageParserService {
 
     private final ApiParser edifactParser;
     private static final List<String> LOG_FILE_PATTERNS = Arrays.asList(
             "das.log*", "MessageTypeB.log*", "MessageAPI.log*", "MessageForwarder.log*"
     );
 
-    public MessageExtractionService() {
+    public MessageParserService() {
         this.edifactParser = new ApiParser();
+    }
+
+    /**
+     * Update the parser configuration with new advanced settings
+     * @param config The new advanced parser configuration
+     */
+    public void updateParserConfiguration(AdvancedParserConfig config) {
+        if (config != null) {
+            edifactParser.setAdvancedConfig(config);
+        }
     }
 
     /**
