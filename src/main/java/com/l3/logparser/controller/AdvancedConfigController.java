@@ -265,17 +265,31 @@ public class AdvancedConfigController implements Initializable {
         public PatternTableRow(ApiPatternConfig.MessagePattern pattern) {
             this.name = new SimpleStringProperty(pattern.getName());
             this.type = new SimpleStringProperty(pattern.getType());
-            this.value = new SimpleStringProperty(pattern.getValue());
             this.enabled = pattern.isEnabled();
             this.conditions = new ArrayList<>(pattern.getConditions());
+
+            String displayValue;
+            if ("multiple".equals(pattern.getType()) && pattern.getConditions() != null && !pattern.getConditions().isEmpty()) {
+                displayValue = pattern.getConditions().size() + " condition(s)";
+            } else {
+                displayValue = pattern.getValue() != null ? pattern.getValue() : "";
+            }
+            this.value = new SimpleStringProperty(displayValue);
         }
 
         public void updateFromPattern(ApiPatternConfig.MessagePattern pattern) {
             this.name.set(pattern.getName());
             this.type.set(pattern.getType());
-            this.value.set(pattern.getValue());
             this.enabled = pattern.isEnabled();
             this.conditions = new ArrayList<>(pattern.getConditions());
+
+            String displayValue;
+            if ("multiple".equals(pattern.getType()) && pattern.getConditions() != null && !pattern.getConditions().isEmpty()) {
+                displayValue = pattern.getConditions().size() + " condition(s)";
+            } else {
+                displayValue = pattern.getValue() != null ? pattern.getValue() : "";
+            }
+            this.value.set(displayValue);
         }
 
         public ApiPatternConfig.MessagePattern toMessagePattern() {
