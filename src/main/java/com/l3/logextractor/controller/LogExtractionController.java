@@ -20,7 +20,6 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
 import javafx.stage.DirectoryChooser;
-import javafx.stage.FileChooser;
 
 import java.io.File;
 import java.io.IOException;
@@ -69,6 +68,7 @@ public class LogExtractionController implements Initializable {
     // Download controls
     @FXML private Button downloadAllButton;
     @FXML private Button downloadSelectedButton;
+    @FXML private Button unzipAllButton;
     @FXML private TextField outputDirectoryField;
     @FXML private Button browseOutputButton;
 
@@ -78,6 +78,7 @@ public class LogExtractionController implements Initializable {
     private ObservableList<LogFileEntry> extractedFiles;
     private PipelineRunResult currentRun;
     private ScheduledExecutorService statusChecker;
+    private List<FileDownloadService.ArtifactInfo> currentArtifacts;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -88,6 +89,8 @@ public class LogExtractionController implements Initializable {
         initializeServices();
         extractedFiles = FXCollections.observableArrayList();
         extractedFilesTable.setItems(extractedFiles);
+        
+        // Add a test entry to verify table is working (will be cleared later)\n        addLogMessage(\"\ud83d\udd27 Initializing table with test entry...\");\n        extractedFiles.add(new LogFileEntry(\n            \"test-file.log\", \n            \"1024\", \n            LocalDateTime.now().format(DateTimeFormatter.ofPattern(\"yyyy-MM-dd HH:mm:ss\")),\n            \"Test\",\n            \"test://url\"\n        ));\n        addLogMessage(\"\ud83d\udccb Table initialized with \" + extractedFiles.size() + \" test items\");\n        \n        // Clear test entry after a short delay\n        Platform.runLater(() -> {\n            extractedFiles.clear();\n            addLogMessage(\"\ud83e\uddf9 Cleared test entries, table ready for real data\");\n        });
 
         // Show configuration status after UI is fully initialized
         showConfigurationStatus();
@@ -107,6 +110,7 @@ public class LogExtractionController implements Initializable {
         // Enable/disable buttons based on state
         downloadAllButton.setDisable(true);
         downloadSelectedButton.setDisable(true);
+        unzipAllButton.setDisable(true);
     }
 
     private void setupTableColumns() {
@@ -123,7 +127,14 @@ public class LogExtractionController implements Initializable {
                 if (empty || item == null) {
                     setText(null);
                 } else {
-                    setText(formatFileSize(Long.parseLong(item)));
+                    try {
+                        // Try to parse as number first
+                        long bytes = Long.parseLong(item);
+                        setText(formatFileSize(bytes));
+                    } catch (NumberFormatException e) {
+                        // If it's already formatted, just display it
+                        setText(item);
+                    }
                 }
             }
         });
@@ -306,6 +317,10 @@ public class LogExtractionController implements Initializable {
             discoverAvailableArtifacts(result);
 
             downloadAllButton.setDisable(false);
+            // Enable unzip button only if output directory is set
+            if (!outputDirectoryField.getText().isEmpty()) {
+                unzipAllButton.setDisable(false);
+            }
             summaryLabel.setText("Ready for download. Select output directory and click download.");
         } else {
             statusLabel.setText("Pipeline failed");
@@ -325,6 +340,9 @@ public class LogExtractionController implements Initializable {
                     result.getRunId(),
                     this::addLogMessage
                 );
+                
+                // Store artifacts for later use in download methods
+                currentArtifacts = artifacts;
 
                 Platform.runLater(() -> {
                     String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
@@ -335,38 +353,44 @@ public class LogExtractionController implements Initializable {
                         return;
                     }
 
+                    // Clear any existing files first
+                    extractedFiles.clear();
+                    
                     // For each artifact, get the file list and add individual files to the table
                     for (FileDownloadService.ArtifactInfo artifact : artifacts) {
+                        addLogMessage("📋 Analyzing artifact: " + artifact.getName() + " (Size: " + formatFileSize(artifact.getSize()) + ")");
+                        
                         // Try to get file list from the artifact
                         List<String> fileNames = getFileNamesFromArtifact(artifact);
+                        addLogMessage("🔍 Retrieved " + fileNames.size() + " files from artifact analysis");
 
-                        if (!fileNames.isEmpty()) {
-                            // Add each individual file to the table
-                            for (String fileName : fileNames) {
-                                extractedFiles.add(new LogFileEntry(
-                                    fileName,
-                                    "0", // Size will be updated after download
-                                    timestamp,
-                                    "Available",
-                                    artifact.getDownloadUrl() + "|" + fileName  // Store download URL and specific file name
-                                ));
-                            }
-                            addLogMessage("Found " + fileNames.size() + " files in artifact: " + artifact.getName());
-                        } else {
-                            // Fallback: add the artifact itself
-                            extractedFiles.add(new LogFileEntry(
-                                artifact.getName(),
-                                String.valueOf(artifact.getSize()),
+                        // Add each individual file to the table
+                        for (String fileName : fileNames) {
+                            // Estimate file size (distribute artifact size among files)
+                            long estimatedSizeBytes = fileNames.size() > 1 ? 
+                                artifact.getSize() / fileNames.size() : 
+                                artifact.getSize();
+                            
+                            LogFileEntry entry = new LogFileEntry(
+                                fileName,
+                                String.valueOf(estimatedSizeBytes), // Store as string number for later parsing
                                 timestamp,
                                 "Available",
-                                artifact.getDownloadUrl()
-                            ));
-                            addLogMessage("Added artifact: " + artifact.getName());
+                                artifact.getDownloadUrl() + "|" + fileName  // Store download URL and specific file name
+                            );
+                            
+                            extractedFiles.add(entry);
+                          //  addLogMessage("➕ Added to table: " + fileName + " (" + formatFileSize(estimatedSizeBytes) + ")");
                         }
+                        addLogMessage("✅ Found " + fileNames.size() + " files in artifact: " + artifact.getName());
                     }
 
+                    // Force table refresh and update UI
+                    extractedFilesTable.refresh();
+                    
                     int totalFiles = extractedFiles.size();
-                    addLogMessage("Total files ready for download: " + totalFiles);
+                    addLogMessage("📊 Total files ready for download: " + totalFiles);
+                    addLogMessage("📋 Table now contains " + extractedFilesTable.getItems().size() + " items");
                     summaryLabel.setText("Found " + totalFiles + " files. Select output directory to download.");
                 });
 
@@ -401,8 +425,10 @@ public class LogExtractionController implements Initializable {
         statusLabel.setText("Ready");
         summaryLabel.setText("");
         progressBar.setVisible(false);
+        currentArtifacts = null;
         downloadAllButton.setDisable(true);
         downloadSelectedButton.setDisable(true);
+        unzipAllButton.setDisable(true);
         extractButton.setDisable(false);
     }
 
@@ -732,12 +758,163 @@ public class LogExtractionController implements Initializable {
             return;
         }
 
-        // Download all files
-        for (LogFileEntry entry : extractedFiles) {
-            downloadFile(entry, outputDir);
+        if (currentArtifacts == null || currentArtifacts.isEmpty()) {
+            showAlert("No Artifacts", "No artifacts available for download. Please run extraction first.");
+            return;
         }
 
-        addLogMessage("Started download of all files to: " + outputDir);
+        downloadAllButton.setDisable(true);
+        addLogMessage("Starting parallel download of all artifacts to: " + outputDir);
+
+        // Update all file statuses to "Downloading"
+        Platform.runLater(() -> {
+            for (LogFileEntry entry : extractedFiles) {
+                entry.setStatus("Downloading");
+            }
+            extractedFilesTable.refresh();
+        });
+
+        Task<Void> downloadTask = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                try {
+                    // Download each artifact and update individual file statuses
+                    boolean allSuccess = true;
+                    for (FileDownloadService.ArtifactInfo artifact : currentArtifacts) {
+                        boolean success = fileDownloadService.downloadArtifactOnly(
+                            artifact, outputDir, this::addLogMessage);
+                        
+                        // Update status for files from this artifact
+                        Platform.runLater(() -> {
+                            updateFileStatusesForArtifact(artifact, success ? "Downloaded" : "Download Failed");
+                        });
+                        
+                        if (!success) {
+                            allSuccess = false;
+                        }
+                    }
+                    
+                    final boolean finalSuccess = allSuccess;
+                    Platform.runLater(() -> {
+                        if (finalSuccess) {
+                            addLogMessage("All artifacts downloaded successfully! You can now click 'Unzip All' to extract .gz files.");
+                            unzipAllButton.setDisable(false);
+                        } else {
+                            addLogMessage("Some artifacts failed to download. Check the logs for details.");
+                        }
+                        downloadAllButton.setDisable(false);
+                    });
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        addLogMessage("Error during download: " + e.getMessage());
+                        // Update all files to failed status
+                        for (LogFileEntry entry : extractedFiles) {
+                            if ("Downloading".equals(entry.getStatus())) {
+                                entry.setStatus("Download Failed");
+                            }
+                        }
+                        extractedFilesTable.refresh();
+                        downloadAllButton.setDisable(false);
+                    });
+                }
+                return null;
+            }
+
+            private void addLogMessage(String message) {
+                Platform.runLater(() -> {
+                    String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                    logArea.appendText(String.format("[%s] %s%n", timestamp, message));
+                });
+            }
+        };
+
+        Thread downloadThread = new Thread(downloadTask);
+        downloadThread.setDaemon(true);
+        downloadThread.start();
+    }
+
+    @FXML
+    private void onUnzipAll() {
+        String outputDir = outputDirectoryField.getText();
+        if (outputDir.isEmpty()) {
+            showAlert("Output Directory", "Please select an output directory first.");
+            return;
+        }
+
+        unzipAllButton.setDisable(true);
+        addLogMessage("Starting to unzip all .gz files in: " + outputDir);
+
+        // Update status of .gz files to "Unzipping"
+        Platform.runLater(() -> {
+            for (LogFileEntry entry : extractedFiles) {
+                if ("Downloaded".equals(entry.getStatus()) && entry.getFileName().toLowerCase().endsWith(".gz")) {
+                    entry.setStatus("Unzipping");
+                }
+            }
+            extractedFilesTable.refresh();
+        });
+
+        Task<Void> unzipTask = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                try {
+                    boolean success = fileDownloadService.unzipAllGzFiles(outputDir, (message) -> {
+                        this.addLogMessage(message);
+                        // Check if message indicates successful extraction of a specific file
+                        if (message.contains("Successfully extracted and removed .gz file:")) {
+                            String[] parts = message.split(" -> ");
+                            if (parts.length == 2) {
+                                String extractedFileName = parts[1].trim();
+                                Platform.runLater(() -> {
+                                    updateFileStatusAfterUnzip(extractedFileName);
+                                });
+                            }
+                        }
+                    });
+                    
+                    Platform.runLater(() -> {
+                        // Update any remaining unzipping files to completed status
+                        for (LogFileEntry entry : extractedFiles) {
+                            if ("Unzipping".equals(entry.getStatus())) {
+                                entry.setStatus(success ? "Extracted" : "Unzip Failed");
+                            }
+                        }
+                        extractedFilesTable.refresh();
+                        
+                        if (success) {
+                            addLogMessage("All .gz files have been successfully extracted and original .gz files deleted!");
+                        } else {
+                            addLogMessage("Some .gz files failed to extract. Check the logs for details.");
+                        }
+                        unzipAllButton.setDisable(false);
+                    });
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        addLogMessage("Error during unzip: " + e.getMessage());
+                        // Update all unzipping files to failed status
+                        for (LogFileEntry entry : extractedFiles) {
+                            if ("Unzipping".equals(entry.getStatus())) {
+                                entry.setStatus("Unzip Failed");
+                            }
+                        }
+                        extractedFilesTable.refresh();
+                        unzipAllButton.setDisable(false);
+                    });
+                }
+                return null;
+            }
+
+            private void addLogMessage(String message) {
+                Platform.runLater(() -> {
+                    String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                    logArea.appendText(String.format("[%s] %s%n", timestamp, message));
+                });
+            }
+        };
+
+        Thread unzipThread = new Thread(unzipTask);
+        unzipThread.setDaemon(true);
+        unzipThread.start();
     }
 
     @FXML
@@ -759,15 +936,67 @@ public class LogExtractionController implements Initializable {
      */
     private List<String> getFileNamesFromArtifact(FileDownloadService.ArtifactInfo artifact) {
         List<String> fileNames = new java.util.ArrayList<>();
+        
+        addLogMessage("🔎 Inspecting artifact: " + artifact.getName());
 
         try {
             // Get the file names from the artifact using the FileDownloadService
             fileNames = fileDownloadService.getFileNamesFromArtifact(artifact);
+            addLogMessage("📂 Found " + fileNames.size() + " files in artifact inspection");
+            
+            if (fileNames.isEmpty()) {
+                // If we can't get individual files, add the artifact itself
+                addLogMessage("⚠️ No individual files found, using artifact name as fallback");
+                fileNames.add(artifact.getName());
+            } else {
+                // Log the first few file names for debugging
+                for (int i = 0; i < Math.min(3, fileNames.size()); i++) {
+                    addLogMessage("  📄 File " + (i+1) + ": " + fileNames.get(i));
+                }
+                if (fileNames.size() > 3) {
+                    addLogMessage("  ... and " + (fileNames.size() - 3) + " more files");
+                }
+            }
         } catch (Exception e) {
-            addLogMessage("Could not extract file names from artifact " + artifact.getName() + ": " + e.getMessage());
+            addLogMessage("❌ Could not extract file names from artifact " + artifact.getName() + ": " + e.getMessage());
+            // Fallback: add the artifact name itself
+            addLogMessage("🔄 Using artifact name as fallback: " + artifact.getName());
+            fileNames.add(artifact.getName());
         }
 
         return fileNames;
+    }
+
+    /**
+     * Update status of files that belong to a specific artifact
+     */
+    private void updateFileStatusesForArtifact(FileDownloadService.ArtifactInfo artifact, String status) {
+        for (LogFileEntry entry : extractedFiles) {
+            // Check if this file belongs to the current artifact
+            if (entry.getFilePath() != null && entry.getFilePath().contains(artifact.getDownloadUrl())) {
+                entry.setStatus(status);
+            }
+        }
+        extractedFilesTable.refresh();
+    }
+
+    /**
+     * Update file status after unzip operation
+     */
+    private void updateFileStatusAfterUnzip(String extractedFileName) {
+        for (LogFileEntry entry : extractedFiles) {
+            // Find the .gz file and update its status
+            if (entry.getFileName().equals(extractedFileName + ".gz") || 
+                entry.getFileName().equals(extractedFileName)) {
+                entry.setStatus("Extracted");
+                // Update the filename to the extracted version (without .gz)
+                if (entry.getFileName().endsWith(".gz")) {
+                    entry.setFileName(extractedFileName);
+                }
+                break;
+            }
+        }
+        extractedFilesTable.refresh();
     }
 
     private void downloadFile(LogFileEntry fileEntry, String outputDir) {
@@ -929,14 +1158,59 @@ public class LogExtractionController implements Initializable {
 
     private void addLogMessage(String message) {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        logArea.appendText(String.format("[%s] %s%n", timestamp, message));
+        String logEntry = String.format("[%s] %s%n", timestamp, message);
+        
+        // Ensure UI update happens on JavaFX Application Thread
+        if (Platform.isFxApplicationThread()) {
+            logArea.appendText(logEntry);
+            // Auto-scroll to bottom
+            logArea.setScrollTop(Double.MAX_VALUE);
+        } else {
+            Platform.runLater(() -> {
+                logArea.appendText(logEntry);
+                // Auto-scroll to bottom
+                logArea.setScrollTop(Double.MAX_VALUE);
+            });
+        }
     }
 
+    /**
+     * Format file size in human readable format
+     */
     private String formatFileSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
         if (bytes < 1024 * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
         return String.format("%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+    }
+
+    /**
+     * Add test data to the table to verify it's working properly
+     * This method can be called for debugging table display issues
+     */
+    public void addTestTableData() {
+        addLogMessage("🧪 Adding test data to verify table functionality...");
+        
+        extractedFiles.clear();
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        
+        // Add several test entries
+        extractedFiles.add(new LogFileEntry("flight_AA123_log1.gz", "1048576", timestamp, "Available", "test://url1"));
+        extractedFiles.add(new LogFileEntry("flight_AA123_log2.gz", "2097152", timestamp, "Available", "test://url2"));
+        extractedFiles.add(new LogFileEntry("flight_AA123_system.log", "512000", timestamp, "Available", "test://url3"));
+        extractedFiles.add(new LogFileEntry("flight_AA123_debug.txt", "256000", timestamp, "Available", "test://url4"));
+        extractedFiles.add(new LogFileEntry("aircraft_telemetry.csv", "5120000", timestamp, "Available", "test://url5"));
+        
+        addLogMessage("📊 Added " + extractedFiles.size() + " test entries to table");
+        addLogMessage("🔍 Table items count: " + extractedFilesTable.getItems().size());
+        
+        // Force refresh
+        extractedFilesTable.refresh();
+        summaryLabel.setText("Test data loaded - " + extractedFiles.size() + " files available for testing");
+        
+        // Enable download buttons for testing
+        downloadAllButton.setDisable(false);
+        unzipAllButton.setDisable(false);
     }
 
     private void showAlert(String title, String message) {

@@ -56,7 +56,7 @@
                                         <Label style="-fx-text-fill: black; -fx-font-size: 11px;" text="Real-time pipeline execution logs" />
                                     </children>
                                 </HBox>
-                                <TextArea fx:id="logArea" editable="false" prefHeight="234.0" prefWidth="491.0" styleClass="logArea" VBox.vgrow="ALWAYS" />
+                                <TextArea fx:id="logArea" editable="false" prefHeight="234.0" prefWidth="491.0" styleClass="logArea" wrapText="true" VBox.vgrow="ALWAYS" />
                             </children>
                             <padding>
                                 <Insets bottom="12.0" left="12.0" right="6.0" top="12.0" />
@@ -193,6 +193,7 @@
                                       <children>
                                           <Button fx:id="downloadAllButton" disable="true" onAction="#onDownloadAll" styleClass="primaryButton" text="⬇ Download All" />
                                           <Button fx:id="downloadSelectedButton" disable="true" onAction="#onDownloadSelected" styleClass="secondaryButton" text="📄 Download Selected" />
+                                          <Button fx:id="unzipAllButton" disable="true" onAction="#onUnzipAll" styleClass="actionButton" text="📦 Unzip All" />
                                           <Region HBox.hgrow="ALWAYS" />
                                           <Label fx:id="summaryLabel" styleClass="success-label" />
                                       </children>

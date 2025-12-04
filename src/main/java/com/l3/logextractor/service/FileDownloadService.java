@@ -20,7 +20,11 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.GZIPInputStream;
@@ -94,7 +98,7 @@ public class FileDownloadService {
     }
 
     /**
-     * Download an artifact to the specified directory
+     * Download an artifact to the specified directory (with auto-unzipping - legacy method)
      */
     public boolean downloadArtifact(ArtifactInfo artifact, String outputDir, Consumer<String> logCallback) {
         try {
@@ -144,6 +148,51 @@ public class FileDownloadService {
     }
 
     /**
+     * Download an artifact to the specified directory WITHOUT auto-unzipping
+     */
+    public boolean downloadArtifactOnly(ArtifactInfo artifact, String outputDir, Consumer<String> logCallback) {
+        try {
+            logCallback.accept("Starting download of artifact: " + artifact.getName() + " (" + formatFileSize(artifact.getSize()) + ")");
+
+            HttpGet downloadRequest = new HttpGet(artifact.getDownloadUrl());
+            downloadRequest.setHeader("Authorization", "Basic " + getEncodedAuth());
+
+            ClassicHttpResponse response = httpClient.execute(downloadRequest);
+
+            if (response.getCode() >= 200 && response.getCode() < 300) {
+                HttpEntity entity = response.getEntity();
+
+                // Create output directory if it doesn't exist
+                Path outputPath = Paths.get(outputDir);
+                Files.createDirectories(outputPath);
+
+                // Download and extract zip file (but don't auto-unzip .gz files)
+                try (InputStream inputStream = entity.getContent()) {
+                    if (artifact.getName().toLowerCase().endsWith(".zip") ||
+                        artifact.getDownloadUrl().contains("format=zip")) {
+                        extractZipFileOnly(inputStream, outputPath, artifact.getName(), logCallback);
+                    } else {
+                        // Download as single file
+                        Path filePath = outputPath.resolve(artifact.getName());
+                        Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
+                        logCallback.accept("Downloaded file: " + artifact.getName() + " to " + filePath.toString());
+                    }
+                }
+
+                logCallback.accept("✅ Successfully downloaded artifact: " + artifact.getName());
+                return true;
+            } else {
+                logCallback.accept("❌ Failed to download artifact " + artifact.getName() + ". HTTP Status: " + response.getCode());
+                return false;
+            }
+
+        } catch (Exception e) {
+            logCallback.accept("❌ Error downloading artifact " + artifact.getName() + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Extract zip file contents to the specified directory
      */
     private void extractZipFile(InputStream zipInputStream, Path outputDir, String artifactName, Consumer<String> logCallback) {
@@ -180,6 +229,51 @@ public class FileDownloadService {
     }
 
     /**
+     * Extract zip file contents to the specified directory WITHOUT auto-unzipping .gz files
+     */
+    private void extractZipFileOnly(InputStream zipInputStream, Path outputDir, String artifactName, Consumer<String> logCallback) {
+        try (ZipInputStream zis = new ZipInputStream(zipInputStream)) {
+            ZipEntry zipEntry;
+            int fileCount = 0;
+
+            while ((zipEntry = zis.getNextEntry()) != null) {
+                if (!zipEntry.isDirectory()) {
+                    Path filePath = outputDir.resolve(zipEntry.getName());
+
+                    // Create parent directories if they don't exist
+                    Files.createDirectories(filePath.getParent());
+
+                    try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
+                        byte[] buffer = new byte[8192]; // Increased buffer size for better performance
+                        int length;
+                        while ((length = zis.read(buffer)) >= 0) {
+                            fos.write(buffer, 0, length);
+                        }
+                    }
+
+                    fileCount++;
+                    String fileName = zipEntry.getName();
+                    // Get just the filename without path
+                    if (fileName.contains("/")) {
+                        fileName = fileName.substring(fileName.lastIndexOf("/") + 1);
+                    }
+                    if (fileName.contains("\\")) {
+                        fileName = fileName.substring(fileName.lastIndexOf("\\") + 1);
+                    }
+                    
+                    logCallback.accept("📁 Extracted from " + artifactName + ": " + fileName + " (" + formatFileSize(zipEntry.getSize()) + ")");
+                    // Note: NOT auto-unzipping .gz files here
+                }
+                zis.closeEntry();
+            }
+            
+            logCallback.accept("📦 Completed extraction of " + fileCount + " files from " + artifactName);
+        } catch (Exception e) {
+            logCallback.accept("❌ Error extracting zip file " + artifactName + ": " + e.getMessage());
+        }
+    }
+
+    /**
      * Extract a .gz file in place and remove the .gz file after extraction
      */
     private void extractGzipFile(Path gzipFile, Consumer<String> logCallback) {
@@ -188,18 +282,24 @@ public class FileDownloadService {
             String extractedFileName = originalFileName.substring(0, originalFileName.length() - 3); // Remove .gz extension
             Path extractedFile = gzipFile.getParent().resolve(extractedFileName);
 
-            logCallback.accept("Extracting gzip file: " + originalFileName);
+            long originalSize = Files.size(gzipFile);
+            logCallback.accept("🗜️ Extracting: " + originalFileName + " (" + formatFileSize(originalSize) + ")");
 
-            // Extract the gzip file
+            // Extract the gzip file with larger buffer for better performance
             try (FileInputStream fis = new FileInputStream(gzipFile.toFile());
                  GZIPInputStream gis = new GZIPInputStream(fis);
                  FileOutputStream fos = new FileOutputStream(extractedFile.toFile())) {
 
-                byte[] buffer = new byte[1024];
+                byte[] buffer = new byte[8192]; // Increased buffer size
                 int length;
+                long totalBytes = 0;
                 while ((length = gis.read(buffer)) >= 0) {
                     fos.write(buffer, 0, length);
+                    totalBytes += length;
                 }
+                
+                // Log the extracted file size
+                logCallback.accept("📄 Extracted to: " + extractedFileName + " (" + formatFileSize(totalBytes) + ")");
             }
 
             // Delete the original .gz file after successful extraction
@@ -207,7 +307,7 @@ public class FileDownloadService {
             logCallback.accept("Successfully extracted and removed .gz file: " + originalFileName + " -> " + extractedFileName);
 
         } catch (Exception e) {
-            logCallback.accept("Error extracting gzip file " + gzipFile.getFileName() + ": " + e.getMessage());
+            logCallback.accept("❌ Error extracting gzip file " + gzipFile.getFileName() + ": " + e.getMessage());
         }
     }
 
@@ -341,6 +441,108 @@ public class FileDownloadService {
     }
 
     /**
+     * Download all artifacts in parallel using ExecutorService with 3 threads
+     */
+    public boolean downloadAllArtifactsParallel(List<ArtifactInfo> artifacts, String outputDir, Consumer<String> logCallback) {
+        if (artifacts.isEmpty()) {
+            logCallback.accept("No artifacts to download");
+            return true;
+        }
+
+        logCallback.accept("Starting parallel download of " + artifacts.size() + " artifacts using 3 threads...");
+        
+        ExecutorService executor = Executors.newFixedThreadPool(3);
+        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+
+        for (ArtifactInfo artifact : artifacts) {
+            CompletableFuture<Boolean> future = CompletableFuture.supplyAsync(() -> {
+                return downloadArtifactOnly(artifact, outputDir, logCallback);
+            }, executor);
+            futures.add(future);
+        }
+
+        boolean allSuccessful = true;
+        try {
+            // Wait for all downloads to complete
+            for (CompletableFuture<Boolean> future : futures) {
+                Boolean result = future.get();
+                if (!result) {
+                    allSuccessful = false;
+                }
+            }
+        } catch (Exception e) {
+            logCallback.accept("Error during parallel download: " + e.getMessage());
+            allSuccessful = false;
+        } finally {
+            executor.shutdown();
+        }
+
+        if (allSuccessful) {
+            logCallback.accept("All artifacts downloaded successfully!");
+        } else {
+            logCallback.accept("Some artifacts failed to download. Check logs for details.");
+        }
+
+        return allSuccessful;
+    }
+
+    /**
+     * Unzip all .gz files in the specified directory and delete the .gz files after extraction
+     */
+    public boolean unzipAllGzFiles(String directory, Consumer<String> logCallback) {
+        try {
+            Path dirPath = Paths.get(directory);
+            if (!Files.exists(dirPath)) {
+                logCallback.accept("❌ Directory does not exist: " + directory);
+                return false;
+            }
+
+            logCallback.accept("🔍 Searching for .gz files in: " + directory);
+            
+            List<Path> gzFiles = new ArrayList<>();
+            try (Stream<Path> files = Files.walk(dirPath)) {
+                files.filter(Files::isRegularFile)
+                     .filter(path -> path.toString().toLowerCase().endsWith(".gz"))
+                     .forEach(gzFiles::add);
+            }
+
+            if (gzFiles.isEmpty()) {
+                logCallback.accept("ℹ️ No .gz files found in directory");
+                return true;
+            }
+
+            logCallback.accept("📦 Found " + gzFiles.size() + " .gz files to extract");
+            
+            boolean allSuccessful = true;
+            int processedCount = 0;
+            
+            for (Path gzFile : gzFiles) {
+                try {
+                    processedCount++;
+                    long fileSize = Files.size(gzFile);
+                    logCallback.accept("⚙️ [" + processedCount + "/" + gzFiles.size() + "] Extracting: " + 
+                                     gzFile.getFileName() + " (" + formatFileSize(fileSize) + ")");
+                    extractGzipFile(gzFile, logCallback);
+                } catch (Exception e) {
+                    logCallback.accept("❌ Failed to extract " + gzFile.getFileName() + ": " + e.getMessage());
+                    allSuccessful = false;
+                }
+            }
+
+            if (allSuccessful) {
+                logCallback.accept("✅ All " + gzFiles.size() + " .gz files extracted successfully!");
+            } else {
+                logCallback.accept("⚠️ Some .gz files failed to extract. Check logs for details.");
+            }
+
+            return allSuccessful;
+        } catch (Exception e) {
+            logCallback.accept("❌ Error during unzip operation: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Get formatted file size
      */
     private String getFileSize(Path file) {
@@ -376,7 +578,7 @@ public class FileDownloadService {
      */
     public List<String> getFileNamesFromArtifact(ArtifactInfo artifact) {
         List<String> fileNames = new ArrayList<>();
-
+        
         try {
             HttpGet downloadRequest = new HttpGet(artifact.getDownloadUrl());
             downloadRequest.setHeader("Authorization", "Basic " + getEncodedAuth());
@@ -391,9 +593,14 @@ public class FileDownloadService {
                      ZipInputStream zis = new ZipInputStream(inputStream)) {
 
                     ZipEntry zipEntry;
+                    int totalEntries = 0;
+                    int validFiles = 0;
+                    
                     while ((zipEntry = zis.getNextEntry()) != null) {
+                        totalEntries++;
                         if (!zipEntry.isDirectory()) {
                             String fileName = zipEntry.getName();
+                            
                             // Extract just the filename without directory path
                             if (fileName.contains("/")) {
                                 fileName = fileName.substring(fileName.lastIndexOf("/") + 1);
@@ -401,17 +608,31 @@ public class FileDownloadService {
                             if (fileName.contains("\\")) {
                                 fileName = fileName.substring(fileName.lastIndexOf("\\") + 1);
                             }
-                            if (!fileName.isEmpty() && isLogFile(Paths.get(fileName))) {
+                            
+                            if (!fileName.isEmpty()) {
+                                // Add all non-empty files, not just log files for better discovery
                                 fileNames.add(fileName);
+                                validFiles++;
                             }
                         }
                         zis.closeEntry();
                     }
+                    
+                    System.out.println("🔍 Artifact " + artifact.getName() + ": Found " + totalEntries + " total entries, " + validFiles + " valid files");
                 }
+            } else {
+                System.out.println("❌ Failed to read artifact " + artifact.getName() + ": HTTP " + response.getCode());
             }
 
         } catch (Exception e) {
-            // If we can't read the zip, return empty list
+            System.out.println("❌ Error reading artifact " + artifact.getName() + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        // Always ensure we return at least one entry
+        if (fileNames.isEmpty()) {
+            System.out.println("⚠️ No files found in artifact, using artifact name as fallback: " + artifact.getName());
+            fileNames.add(artifact.getName());
         }
 
         return fileNames;
