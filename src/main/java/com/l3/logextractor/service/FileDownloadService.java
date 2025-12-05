@@ -3,6 +3,7 @@ package com.l3.logextractor.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.l3.logextractor.config.AzureConfig;
+import com.l3.logextractor.controller.LogExtractionController;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -36,6 +37,7 @@ public class FileDownloadService {
     private final AzureConfig config;
     private final ObjectMapper objectMapper;
     private final CloseableHttpClient httpClient;
+    private final LogExtractionController logExtractionController= new LogExtractionController();
 
     public FileDownloadService(AzureConfig config) {
         this.config = config;
@@ -286,7 +288,7 @@ public class FileDownloadService {
 
                     fileCount++;
                     long actualSize = Files.size(filePath);
-                    logCallback.accept(" Extracted from " + artifactName + ": " + fileName + " (" + formatFileSize(actualSize) + ")");
+                    logCallback.accept(" Downloading from " + artifactName + ": " + fileName + " (" + formatFileSize(actualSize) + ")");
                     // Note: NOT auto-unzipping .gz files here
                 }
                 zis.closeEntry();
@@ -357,60 +359,6 @@ public class FileDownloadService {
         } catch (Exception e) {
             return "Error reading file: " + e.getMessage();
         }
-    }
-
-
-    /**
-     * Create a download directory for the flight
-     */
-    private String createDownloadDirectory(String flightNumber) throws IOException {
-        String userHome = System.getProperty("user.home");
-        String downloadDir = String.format("%s/Downloads/L3Engine_Logs/%s_%s",
-            userHome,
-            flightNumber,
-            java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-        );
-
-        Path downloadPath = Paths.get(downloadDir);
-        Files.createDirectories(downloadPath);
-
-        return downloadDir;
-    }
-
-    /**
-     * Find all extracted files from an artifact download
-     */
-    private List<Path> findExtractedFiles(String downloadDir, String artifactName, Consumer<String> logCallback) {
-        List<Path> files = new ArrayList<>();
-
-        try {
-            Path dirPath = Paths.get(downloadDir);
-
-            Files.walk(dirPath)
-                 .filter(Files::isRegularFile)
-                 .filter(path -> isLogFile(path))
-                 .forEach(files::add);
-
-            logCallback.accept("Found " + files.size() + " log files in " + artifactName);
-
-        } catch (Exception e) {
-            logCallback.accept("Error finding extracted files: " + e.getMessage());
-        }
-
-        return files;
-    }
-
-    /**
-     * Check if a file is a log file based on extension or name patterns
-     */
-    private boolean isLogFile(Path file) {
-        String fileName = file.getFileName().toString().toLowerCase();
-        return fileName.endsWith(".log") ||
-               fileName.endsWith(".txt") ||
-               fileName.contains("log") ||
-               fileName.endsWith(".csv") ||
-               fileName.endsWith(".json") ||
-               fileName.endsWith(".gz"); // Include .gz files as they often contain compressed logs
     }
 
     /**
@@ -533,17 +481,6 @@ public class FileDownloadService {
         }
     }
 
-    /**
-     * Get formatted file size
-     */
-    private String getFileSize(Path file) {
-        try {
-            long bytes = Files.size(file);
-            return formatFileSize(bytes);
-        } catch (Exception e) {
-            return "Unknown size";
-        }
-    }
 
     /**
      * Format file size in human readable format
@@ -564,70 +501,6 @@ public class FileDownloadService {
         httpClient.close();
     }
 
-    /**
-     * Get file names from a zip artifact without downloading the entire artifact
-     */
-    public List<String> getFileNamesFromArtifact(ArtifactInfo artifact) {
-        List<String> fileNames = new ArrayList<>();
-        
-        try {
-            HttpGet downloadRequest = new HttpGet(artifact.getDownloadUrl());
-            downloadRequest.setHeader("Authorization", "Basic " + getEncodedAuth());
-
-            ClassicHttpResponse response = httpClient.execute(downloadRequest);
-
-            if (response.getCode() >= 200 && response.getCode() < 300) {
-                HttpEntity entity = response.getEntity();
-
-                // Read the zip file and extract file names
-                try (InputStream inputStream = entity.getContent();
-                     ZipInputStream zis = new ZipInputStream(inputStream)) {
-
-                    ZipEntry zipEntry;
-                    int totalEntries = 0;
-                    int validFiles = 0;
-                    
-                    while ((zipEntry = zis.getNextEntry()) != null) {
-                        totalEntries++;
-                        if (!zipEntry.isDirectory()) {
-                            String fileName = zipEntry.getName();
-                            
-                            // Extract just the filename without directory path
-                            if (fileName.contains("/")) {
-                                fileName = fileName.substring(fileName.lastIndexOf("/") + 1);
-                            }
-                            if (fileName.contains("\\")) {
-                                fileName = fileName.substring(fileName.lastIndexOf("\\") + 1);
-                            }
-                            
-                            if (!fileName.isEmpty() && !fileName.startsWith(".") && !fileName.startsWith("__")) {
-                                // Add all non-empty, non-system files
-                                fileNames.add(fileName);
-                                validFiles++;
-                            }
-                        }
-                        zis.closeEntry();
-                    }
-                    
-                    System.out.println(" Artifact " + artifact.getName() + ": Found " + totalEntries + " total entries, " + validFiles + " valid files");
-                }
-            } else {
-                System.out.println(" Failed to read artifact " + artifact.getName() + ": HTTP " + response.getCode());
-            }
-
-        } catch (Exception e) {
-            System.out.println(" Error reading artifact " + artifact.getName() + ": " + e.getMessage());
-            e.printStackTrace();
-        }
-        
-        // Always ensure we return at least one entry
-        if (fileNames.isEmpty()) {
-            System.out.println(" No files found in artifact, using artifact name as fallback: " + artifact.getName());
-            fileNames.add(artifact.getName());
-        }
-
-        return fileNames;
-    }
     
     /**
      * Get file information (name and size) from a zip artifact without downloading the entire artifact

@@ -348,7 +348,7 @@ public class LogExtractionController implements Initializable {
 
     private void discoverAvailableArtifacts(PipelineRunResult result) {
 
-        addLogMessage("Discovering available artifacts...");
+        addLogMessage("Downloading available artifacts...");
 
         CompletableFuture
                 .supplyAsync(() -> fileDownloadService.getArtifacts(result.getRunId(), this::addLogMessage), executor)
@@ -370,8 +370,9 @@ public class LogExtractionController implements Initializable {
 
                         for (FileDownloadService.ArtifactInfo artifact : artifacts) {
 
-                            addLogMessage("Analyzing artifact: " + artifact.getName() +
+                            addLogMessage("Downloading artifact: " + artifact.getName() +
                                     " (Size: " + formatFileSize(artifact.getSize()) + ")");
+
 
                             List<FileDownloadService.FileInfo> fileInfos =
                                     fileDownloadService.getFileInfoFromArtifact(artifact);
@@ -987,42 +988,6 @@ public class LogExtractionController implements Initializable {
     }
 
     /**
-     * Get file names from a zip artifact by downloading and inspecting the zip
-     */
-    private List<String> getFileNamesFromArtifact(FileDownloadService.ArtifactInfo artifact) {
-        List<String> fileNames = new java.util.ArrayList<>();
-        
-        addLogMessage(" Inspecting artifact: " + artifact.getName());
-
-        try {
-            // Get the file names from the artifact using the FileDownloadService
-            fileNames = fileDownloadService.getFileNamesFromArtifact(artifact);
-            addLogMessage(" Found " + fileNames.size() + " files in artifact inspection");
-            
-            if (fileNames.isEmpty()) {
-                // If we can't get individual files, add the artifact itself
-                addLogMessage(" No individual files found, using artifact name as fallback");
-                fileNames.add(artifact.getName());
-            } else {
-                // Log the first few file names for debugging
-                for (int i = 0; i < Math.min(3, fileNames.size()); i++) {
-                    addLogMessage("   File " + (i+1) + ": " + fileNames.get(i));
-                }
-                if (fileNames.size() > 3) {
-                    addLogMessage("  ... and " + (fileNames.size() - 3) + " more files");
-                }
-            }
-        } catch (Exception e) {
-            addLogMessage(" Could not extract file names from artifact " + artifact.getName() + ": " + e.getMessage());
-            // Fallback: add the artifact name itself
-            addLogMessage(" Using artifact name as fallback: " + artifact.getName());
-            fileNames.add(artifact.getName());
-        }
-
-        return fileNames;
-    }
-
-    /**
      * Update status of files that belong to a specific artifact
      */
     private void updateFileStatusesForArtifact(FileDownloadService.ArtifactInfo artifact, String status) {
@@ -1207,7 +1172,7 @@ public class LogExtractionController implements Initializable {
     }
 
 
-    private void addLogMessage(String message) {
+     private void addLogMessage(String message) {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         String logEntry = String.format("[%s] %s%n", timestamp, message);
         
