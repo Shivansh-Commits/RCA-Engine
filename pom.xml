@@ -6,7 +6,7 @@
 
     <groupId>com.l3</groupId>
     <artifactId>engine</artifactId>
-    <version>3.2.0.0</version>
+    <version>3.2.2.1</version>
     <name>L3 Engine</name>
 
     <properties>
