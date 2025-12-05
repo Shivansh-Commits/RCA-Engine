@@ -31,11 +31,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.stream.Stream;
 
 /**
  * Controller for the Log Extraction UI
@@ -80,6 +81,8 @@ public class LogExtractionController implements Initializable {
     private ScheduledExecutorService statusChecker;
     private List<FileDownloadService.ArtifactInfo> currentArtifacts;
 
+    private final ExecutorService executor = Executors.newFixedThreadPool(4);
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         setupUI();
@@ -119,21 +122,35 @@ public class LogExtractionController implements Initializable {
         extractedTimeColumn.setCellValueFactory(new PropertyValueFactory<>("extractedTime"));
         statusColumn.setCellValueFactory(new PropertyValueFactory<>("status"));
 
-        // Format columns
+        // Set minimum column widths to ensure content is visible
+        fileNameColumn.setMinWidth(200);
+        fileSizeColumn.setMinWidth(100);
+        extractedTimeColumn.setMinWidth(150);
+        statusColumn.setMinWidth(100);
+        
+        // Format file size column with improved error handling
         fileSizeColumn.setCellFactory(column -> new TableCell<LogFileEntry, String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null) {
+                if (empty || item == null || item.trim().isEmpty()) {
                     setText(null);
                 } else {
                     try {
-                        // Try to parse as number first
-                        long bytes = Long.parseLong(item);
-                        setText(formatFileSize(bytes));
+                        String trimmedItem = item.trim();
+                        long bytes = Long.parseLong(trimmedItem);
+                        
+                        if (bytes < 0) {
+                            setText("Unknown");
+                        } else if (bytes == 0) {
+                            setText("0 B");
+                        } else {
+                            setText(formatFileSize(bytes));
+                        }
                     } catch (NumberFormatException e) {
-                        // If it's already formatted, just display it
-                        setText(item);
+                        // For debugging: show the raw value
+                        setText("[" + item + "]");
+                        System.out.println("DEBUG: Failed to parse file size: '" + item + "'");
                     }
                 }
             }
@@ -330,84 +347,77 @@ public class LogExtractionController implements Initializable {
     }
 
     private void discoverAvailableArtifacts(PipelineRunResult result) {
-        Task<Void> discoveryTask = new Task<Void>() {
-            @Override
-            protected Void call() throws Exception {
-                addLogMessage("Discovering available artifacts...");
 
-                // Get list of available artifacts without downloading them
-                List<FileDownloadService.ArtifactInfo> artifacts = fileDownloadService.getArtifacts(
-                    result.getRunId(),
-                    this::addLogMessage
-                );
-                
-                // Store artifacts for later use in download methods
-                currentArtifacts = artifacts;
+        addLogMessage("Discovering available artifacts...");
 
-                Platform.runLater(() -> {
-                    String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        CompletableFuture
+                .supplyAsync(() -> fileDownloadService.getArtifacts(result.getRunId(), this::addLogMessage), executor)
+                .thenCompose(artifacts -> {
+
+                    currentArtifacts = artifacts;
 
                     if (artifacts.isEmpty()) {
-                        addLogMessage("No artifacts found for this build.");
-                        summaryLabel.setText("No artifacts available for download");
-                        return;
+                        Platform.runLater(() -> {
+                            addLogMessage("No artifacts found for this build.");
+                            summaryLabel.setText("No artifacts available for download");
+                        });
+                        return CompletableFuture.completedFuture(null);
                     }
 
-                    // Clear any existing files first
-                    extractedFiles.clear();
-                    
-                    // For each artifact, get the file list and add individual files to the table
-                    for (FileDownloadService.ArtifactInfo artifact : artifacts) {
-                        addLogMessage("📋 Analyzing artifact: " + artifact.getName() + " (Size: " + formatFileSize(artifact.getSize()) + ")");
-                        
-                        // Try to get file list from the artifact
-                        List<String> fileNames = getFileNamesFromArtifact(artifact);
-                        addLogMessage("🔍 Retrieved " + fileNames.size() + " files from artifact analysis");
+                    // Process all artifacts in background thread
+                    return CompletableFuture.supplyAsync(() -> {
+                        List<LogFileEntry> entries = new ArrayList<>();
 
-                        // Add each individual file to the table
-                        for (String fileName : fileNames) {
-                            // Estimate file size (distribute artifact size among files)
-                            long estimatedSizeBytes = fileNames.size() > 1 ? 
-                                artifact.getSize() / fileNames.size() : 
-                                artifact.getSize();
-                            
-                            LogFileEntry entry = new LogFileEntry(
-                                fileName,
-                                String.valueOf(estimatedSizeBytes), // Store as string number for later parsing
-                                timestamp,
-                                "Available",
-                                artifact.getDownloadUrl() + "|" + fileName  // Store download URL and specific file name
-                            );
-                            
-                            extractedFiles.add(entry);
-                          //  addLogMessage("➕ Added to table: " + fileName + " (" + formatFileSize(estimatedSizeBytes) + ")");
+                        for (FileDownloadService.ArtifactInfo artifact : artifacts) {
+
+                            addLogMessage("Analyzing artifact: " + artifact.getName() +
+                                    " (Size: " + formatFileSize(artifact.getSize()) + ")");
+
+                            List<FileDownloadService.FileInfo> fileInfos =
+                                    fileDownloadService.getFileInfoFromArtifact(artifact);
+
+                            addLogMessage(" Retrieved " + fileInfos.size() + " files from artifact analysis");
+
+                            String timestamp = LocalDateTime.now()
+                                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+                            for (FileDownloadService.FileInfo fileInfo : fileInfos) {
+                                entries.add(new LogFileEntry(
+                                        fileInfo.getName(),
+                                        String.valueOf(fileInfo.getSize()),
+                                        timestamp,
+                                        "Available",
+                                        artifact.getDownloadUrl() + "|" + fileInfo.getName()
+                                ));
+                            }
                         }
-                        addLogMessage("✅ Found " + fileNames.size() + " files in artifact: " + artifact.getName());
-                    }
 
-                    // Force table refresh and update UI
-                    extractedFilesTable.refresh();
-                    
-                    int totalFiles = extractedFiles.size();
-                    addLogMessage("📊 Total files ready for download: " + totalFiles);
-                    addLogMessage("📋 Table now contains " + extractedFilesTable.getItems().size() + " items");
-                    summaryLabel.setText("Found " + totalFiles + " files. Select output directory to download.");
+                        return entries;
+                    }, executor);
+                })
+                .thenAccept(entries -> {
+
+                    if (entries == null) return;
+
+                    Platform.runLater(() -> {
+                        extractedFiles.clear();
+                        extractedFiles.addAll(entries);
+
+                        extractedFilesTable.refresh();
+
+                        fileSizeColumn.setVisible(false);
+                        fileSizeColumn.setVisible(true);
+
+                        summaryLabel.setText("Found " + entries.size() +
+                                " files. Select output directory to download.");
+
+                        addLogMessage(" Total files ready for download: " + entries.size());
+                    });
+                })
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> addLogMessage("Error during artifact discovery: " + ex.getMessage()));
+                    return null;
                 });
-
-                return null;
-            }
-
-            private void addLogMessage(String message) {
-                Platform.runLater(() -> {
-                    String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                    logArea.appendText(String.format("[%s] %s%n", timestamp, message));
-                });
-            }
-        };
-
-        Thread discoveryThread = new Thread(discoveryTask);
-        discoveryThread.setDaemon(true);
-        discoveryThread.start();
     }
 
     @FXML
@@ -566,22 +576,22 @@ public class LogExtractionController implements Initializable {
 
                 // 1. COMPLETENESS VALIDATION
                 if (organization == null || organization.trim().isEmpty()) {
-                    return "❌ Organization field is required.";
+                    return " Organization field is required.";
                 }
                 if (project == null || project.trim().isEmpty()) {
-                    return "❌ Project field is required.";
+                    return " Project field is required.";
                 }
                 if (pipelineId == null || pipelineId.trim().isEmpty()) {
-                    return "❌ Pipeline ID field is required.";
+                    return " Pipeline ID field is required.";
                 }
                 if (branch == null || branch.trim().isEmpty()) {
-                    return "❌ Branch field is required.";
+                    return " Branch field is required.";
                 }
                 if (environment == null || environment.trim().isEmpty()) {
-                    return "❌ Environment field is required.";
+                    return " Environment field is required.";
                 }
                 if (token == null || token.trim().isEmpty()) {
-                    return "❌ Personal Access Token field is required.";
+                    return " Personal Access Token field is required.";
                 }
 
                 // Clean the inputs - use new variables to maintain effectively final requirement
@@ -596,12 +606,12 @@ public class LogExtractionController implements Initializable {
                 // Filter: Only alphanumeric, hyphens, and underscores
                 // Length: 1-255 characters
                 if (!cleanOrg.matches("^[a-zA-Z0-9-_]+$")) {
-                    return "❌ Organization name invalid.\n" +
+                    return " Organization name invalid.\n" +
                            "Allowed: Letters, numbers, hyphens (-), underscores (_)\n" +
                            "Current: Contains invalid characters";
                 }
                 if (cleanOrg.length() < 1 || cleanOrg.length() > 255) {
-                    return "❌ Organization name length invalid.\n" +
+                    return " Organization name length invalid.\n" +
                            "Required: 1-255 characters\n" +
                            "Current: " + cleanOrg.length() + " characters";
                 }
@@ -610,12 +620,12 @@ public class LogExtractionController implements Initializable {
                 // Filter: Only alphanumeric, hyphens, underscores, and spaces
                 // Length: 1-64 characters
                 if (!cleanProject.matches("^[a-zA-Z0-9-_ ]+$")) {
-                    return "❌ Project name invalid.\n" +
+                    return " Project name invalid.\n" +
                            "Allowed: Letters, numbers, hyphens (-), underscores (_), spaces\n" +
                            "Current: Contains invalid characters";
                 }
                 if (cleanProject.length() < 1 || cleanProject.length() > 64) {
-                    return "❌ Project name length invalid.\n" +
+                    return " Project name length invalid.\n" +
                            "Required: 1-64 characters\n" +
                            "Current: " + cleanProject.length() + " characters";
                 }
@@ -624,7 +634,7 @@ public class LogExtractionController implements Initializable {
                 // Filter: Only numeric digits
                 // Length: 1-10 digits
                 if (!cleanPipelineId.matches("^\\d{1,10}$")) {
-                    return "❌ Pipeline ID invalid.\n" +
+                    return " Pipeline ID invalid.\n" +
                            "Required: Numeric digits only (1-10 digits)\n" +
                            "Current: '" + cleanPipelineId + "' contains non-numeric characters or wrong length";
                 }
@@ -634,21 +644,21 @@ public class LogExtractionController implements Initializable {
                 // Length: 1-250 characters
                 // Pattern: No spaces at start/end, no consecutive slashes, valid Git characters
                 if (!cleanBranch.matches("^[a-zA-Z0-9/_.-]+$")) {
-                    return "❌ Branch name invalid.\n" +
+                    return " Branch name invalid.\n" +
                            "Allowed: Letters, numbers, forward slashes (/), underscores (_), dots (.), hyphens (-)\n" +
                            "Current: Contains invalid characters";
                 }
                 if (cleanBranch.length() < 1 || cleanBranch.length() > 250) {
-                    return "❌ Branch name length invalid.\n" +
+                    return " Branch name length invalid.\n" +
                            "Required: 1-250 characters\n" +
                            "Current: " + cleanBranch.length() + " characters";
                 }
                 if (cleanBranch.startsWith("/") || cleanBranch.endsWith("/")) {
-                    return "❌ Branch name invalid.\n" +
+                    return " Branch name invalid.\n" +
                            "Branch names cannot start or end with forward slash (/)";
                 }
                 if (cleanBranch.contains("//")) {
-                    return "❌ Branch name invalid.\n" +
+                    return " Branch name invalid.\n" +
                            "Branch names cannot contain consecutive forward slashes (//)";
                 }
 
@@ -663,7 +673,7 @@ public class LogExtractionController implements Initializable {
                 if (!validEnvironments.contains(cleanEnvironment)) {
                     String validEnvironmentsStr = String.join(", ", validEnvironments.stream()
                         .map(env -> "'" + env + "'").toArray(String[]::new));
-                    return "❌ Environment invalid.\n" +
+                    return " Environment invalid.\n" +
                            "Required: Must be one of " + validEnvironmentsStr + "\n" +
                            "Current: '" + cleanEnvironment + "'";
                 }
@@ -675,7 +685,7 @@ public class LogExtractionController implements Initializable {
                 if (cleanToken.length() == 52) {
                     // Legacy Azure DevOps token format
                     if (!cleanToken.matches("^[A-Za-z0-9+/=]+$")) {
-                        return "❌ Personal Access Token format invalid (Legacy 52-char format).\n" +
+                        return " Personal Access Token format invalid (Legacy 52-char format).\n" +
                                "Allowed: Letters, numbers, plus (+), forward slash (/), equals (=)\n" +
                                "Current: Contains invalid characters\n" +
                                "Note: Ensure you copied the token correctly from Azure DevOps";
@@ -683,7 +693,7 @@ public class LogExtractionController implements Initializable {
                 } else if (cleanToken.length() >= 84 && cleanToken.length() <= 85) {
                     // New Azure DevOps token format with AZDO signature
                     if (!cleanToken.matches("^[A-Za-z0-9+/=_-]+$")) {
-                        return "❌ Personal Access Token format invalid (New format).\n" +
+                        return " Personal Access Token format invalid (New format).\n" +
                                "Allowed: Letters, numbers, plus (+), forward slash (/), equals (=), underscore (_), hyphen (-)\n" +
                                "Current: Contains invalid characters\n" +
                                "Note: Ensure you copied the token correctly from Azure DevOps";
@@ -691,13 +701,13 @@ public class LogExtractionController implements Initializable {
 
                     // Check for AZDO signature - it should be present somewhere in the last part of the token
                     if (!cleanToken.contains("AZDO")) {
-                        return "❌ Personal Access Token format invalid (New format).\n" +
+                        return " Personal Access Token format invalid (New format).\n" +
                                "Expected: 'AZDO' signature in the token\n" +
                                "Current: No AZDO signature found\n" +
                                "Note: This appears to be a corrupted Azure DevOps token";
                     }
                 } else {
-                    return "❌ Personal Access Token length invalid.\n" +
+                    return " Personal Access Token length invalid.\n" +
                            "Azure DevOps supports these token formats:\n" +
                            "• Legacy tokens: 52 characters\n" +
                            "• New tokens: 84-85 characters (with AZDO signature)\n" +
@@ -708,12 +718,12 @@ public class LogExtractionController implements Initializable {
                 // 8. ADDITIONAL CHECKS
                 // Check for common mistakes
                 if (cleanOrg.toLowerCase().contains("http")) {
-                    return "❌ Organization should not contain URLs.\n" +
+                    return " Organization should not contain URLs.\n" +
                            "Use only the organization name, not the full URL.";
                 }
 
                 String tokenType = cleanToken.length() == 52 ? "Legacy" : "New";
-                return "✅ All configuration fields are valid!\n\n" +
+                return " All configuration fields are valid!\n\n" +
                        "Validation Results:\n" +
                        "• Organization: '" + cleanOrg + "' ✓\n" +
                        "• Project: '" + cleanProject + "' ✓\n" +
@@ -731,7 +741,7 @@ public class LogExtractionController implements Initializable {
         });
 
         testTask.setOnFailed(e -> {
-            showAlert("Configuration Validation", "❌ Validation failed: " + testTask.getException().getMessage());
+            showAlert("Configuration Validation", " Validation failed: " + testTask.getException().getMessage());
         });
 
         Thread testThread = new Thread(testTask);
@@ -768,10 +778,16 @@ public class LogExtractionController implements Initializable {
 
         // Update all file statuses to "Downloading"
         Platform.runLater(() -> {
+            LogFileEntry selectedEntry = extractedFilesTable.getSelectionModel().getSelectedItem();
             for (LogFileEntry entry : extractedFiles) {
                 entry.setStatus("Downloading");
             }
             extractedFilesTable.refresh();
+
+            // Refresh preview if a file is selected
+            if (selectedEntry != null) {
+                loadFilePreview(selectedEntry);
+            }
         });
 
         Task<Void> downloadTask = new Task<Void>() {
@@ -779,21 +795,48 @@ public class LogExtractionController implements Initializable {
             protected Void call() throws Exception {
                 try {
                     // Download each artifact and update individual file statuses
-                    boolean allSuccess = true;
+                    ExecutorService executor = Executors.newFixedThreadPool(4); // or dynamic based on CPU cores
+
+                    List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+
                     for (FileDownloadService.ArtifactInfo artifact : currentArtifacts) {
-                        boolean success = fileDownloadService.downloadArtifactOnly(
-                            artifact, outputDir, this::addLogMessage);
-                        
-                        // Update status for files from this artifact
-                        Platform.runLater(() -> {
-                            updateFileStatusesForArtifact(artifact, success ? "Downloaded" : "Download Failed");
-                        });
-                        
-                        if (!success) {
-                            allSuccess = false;
-                        }
+
+                        CompletableFuture<Boolean> future = CompletableFuture.supplyAsync(() -> {
+
+                            // Download + extract this artifact in parallel (your existing logic)
+                            boolean success = fileDownloadService.downloadAllArtifactsParallel(
+                                    List.of(artifact),
+                                    outputDir,
+                                    this::addLogMessage
+                            );
+
+                            // Update UI on FX thread
+                            Platform.runLater(() ->
+                                    updateFileStatusesForArtifact(
+                                            artifact,
+                                            success ? "Downloaded" : "Download Failed"
+                                    )
+                            );
+
+                            return success;
+
+                        }, executor);
+
+                        futures.add(future);
                     }
-                    
+
+// Wait for ALL artifacts to finish
+                    CompletableFuture<Void> allDone = CompletableFuture.allOf(
+                            futures.toArray(new CompletableFuture[0])
+                    );
+
+                    boolean allSuccess = allDone.thenApply(v ->
+                            futures.stream().allMatch(f -> {
+                                try { return f.get(); } catch (Exception e) { return false; }
+                            })
+                    ).join();
+
+                    executor.shutdown();
                     final boolean finalSuccess = allSuccess;
                     Platform.runLater(() -> {
                         if (finalSuccess) {
@@ -846,12 +889,24 @@ public class LogExtractionController implements Initializable {
 
         // Update status of .gz files to "Unzipping"
         Platform.runLater(() -> {
+            LogFileEntry selectedEntry = extractedFilesTable.getSelectionModel().getSelectedItem();
+            boolean shouldRefreshPreview = false;
+            
             for (LogFileEntry entry : extractedFiles) {
                 if ("Downloaded".equals(entry.getStatus()) && entry.getFileName().toLowerCase().endsWith(".gz")) {
                     entry.setStatus("Unzipping");
+                    // Check if this is the selected file
+                    if (selectedEntry != null && selectedEntry.equals(entry)) {
+                        shouldRefreshPreview = true;
+                    }
                 }
             }
             extractedFilesTable.refresh();
+            
+            // Refresh preview if selected file status changed
+            if (shouldRefreshPreview && selectedEntry != null) {
+                loadFilePreview(selectedEntry);
+            }
         });
 
         Task<Void> unzipTask = new Task<Void>() {
@@ -937,30 +992,30 @@ public class LogExtractionController implements Initializable {
     private List<String> getFileNamesFromArtifact(FileDownloadService.ArtifactInfo artifact) {
         List<String> fileNames = new java.util.ArrayList<>();
         
-        addLogMessage("🔎 Inspecting artifact: " + artifact.getName());
+        addLogMessage(" Inspecting artifact: " + artifact.getName());
 
         try {
             // Get the file names from the artifact using the FileDownloadService
             fileNames = fileDownloadService.getFileNamesFromArtifact(artifact);
-            addLogMessage("📂 Found " + fileNames.size() + " files in artifact inspection");
+            addLogMessage(" Found " + fileNames.size() + " files in artifact inspection");
             
             if (fileNames.isEmpty()) {
                 // If we can't get individual files, add the artifact itself
-                addLogMessage("⚠️ No individual files found, using artifact name as fallback");
+                addLogMessage(" No individual files found, using artifact name as fallback");
                 fileNames.add(artifact.getName());
             } else {
                 // Log the first few file names for debugging
                 for (int i = 0; i < Math.min(3, fileNames.size()); i++) {
-                    addLogMessage("  📄 File " + (i+1) + ": " + fileNames.get(i));
+                    addLogMessage("   File " + (i+1) + ": " + fileNames.get(i));
                 }
                 if (fileNames.size() > 3) {
                     addLogMessage("  ... and " + (fileNames.size() - 3) + " more files");
                 }
             }
         } catch (Exception e) {
-            addLogMessage("❌ Could not extract file names from artifact " + artifact.getName() + ": " + e.getMessage());
+            addLogMessage(" Could not extract file names from artifact " + artifact.getName() + ": " + e.getMessage());
             // Fallback: add the artifact name itself
-            addLogMessage("🔄 Using artifact name as fallback: " + artifact.getName());
+            addLogMessage(" Using artifact name as fallback: " + artifact.getName());
             fileNames.add(artifact.getName());
         }
 
@@ -971,24 +1026,45 @@ public class LogExtractionController implements Initializable {
      * Update status of files that belong to a specific artifact
      */
     private void updateFileStatusesForArtifact(FileDownloadService.ArtifactInfo artifact, String status) {
+        LogFileEntry selectedEntry = extractedFilesTable.getSelectionModel().getSelectedItem();
+        boolean shouldRefreshPreview = false;
+        
         for (LogFileEntry entry : extractedFiles) {
             // Check if this file belongs to the current artifact
             if (entry.getFilePath() != null && entry.getFilePath().contains(artifact.getDownloadUrl())) {
                 entry.setStatus(status);
+                // Check if the currently selected file's status changed
+                if (selectedEntry != null && selectedEntry.equals(entry)) {
+                    shouldRefreshPreview = true;
+                }
             }
         }
         extractedFilesTable.refresh();
+        
+        // Refresh preview if selected file status changed
+        if (shouldRefreshPreview && selectedEntry != null) {
+            loadFilePreview(selectedEntry);
+        }
     }
 
     /**
      * Update file status after unzip operation
      */
     private void updateFileStatusAfterUnzip(String extractedFileName) {
+        LogFileEntry selectedEntry = extractedFilesTable.getSelectionModel().getSelectedItem();
+        boolean shouldRefreshPreview = false;
+        
         for (LogFileEntry entry : extractedFiles) {
             // Find the .gz file and update its status
             if (entry.getFileName().equals(extractedFileName + ".gz") || 
                 entry.getFileName().equals(extractedFileName)) {
                 entry.setStatus("Extracted");
+                
+                // Check if this is the currently selected file
+                if (selectedEntry != null && selectedEntry.equals(entry)) {
+                    shouldRefreshPreview = true;
+                }
+                
                 // Update the filename to the extracted version (without .gz)
                 if (entry.getFileName().endsWith(".gz")) {
                     entry.setFileName(extractedFileName);
@@ -997,6 +1073,11 @@ public class LogExtractionController implements Initializable {
             }
         }
         extractedFilesTable.refresh();
+        
+        // Refresh preview if selected file status changed
+        if (shouldRefreshPreview && selectedEntry != null) {
+            loadFilePreview(selectedEntry);
+        }
     }
 
     private void downloadFile(LogFileEntry fileEntry, String outputDir) {
@@ -1108,37 +1189,7 @@ public class LogExtractionController implements Initializable {
         Task<String> previewTask = new Task<String>() {
             @Override
             protected String call() throws Exception {
-                // If file has been downloaded, try to show actual content
-                if ("Downloaded".equals(entry.getStatus()) && entry.getFilePath() != null && !entry.getFilePath().isEmpty()) {
-                    Path sourceFile = Paths.get(entry.getFilePath());
-                    if (Files.exists(sourceFile)) {
-                        return fileDownloadService.getFilePreview(sourceFile.toString(), 50);
-                    }
-                }
-
-                // If file is available but not downloaded yet, show info message
-                if ("Available".equals(entry.getStatus())) {
-                    String preview = String.format("=== File Information: %s ===\n", entry.getFileName());
-                    preview += String.format("Flight: %s\n", flightNumberField.getText());
-                    preview += String.format("Date: %s\n", incidentDatePicker.getValue());
-                    preview += String.format("File Size: %s\n", formatFileSize(Long.parseLong(entry.getFileSize())));
-                    preview += "Status: Ready for download\n";
-                    preview += "=================================\n\n";
-                    preview += "This file is available for download from Azure DevOps.\n";
-                    preview += "Please select an output directory and click 'Download Selected' or 'Download All' to download this file.\n";
-                    preview += "Once downloaded, you will be able to preview the actual file content here.";
-                    return preview;
-                }
-
-                // Fallback preview
-                String preview = String.format("=== Preview of %s ===\n", entry.getFileName());
-                preview += String.format("Flight: %s\n", flightNumberField.getText());
-                preview += String.format("Date: %s\n", incidentDatePicker.getValue());
-                preview += "=================================\n";
-                preview += "[File status: " + entry.getStatus() + "]\n";
-                preview += "Unable to load preview for this file.";
-
-                return preview;
+                return LogExtractionController.this.generatePreviewContent(entry);
             }
         };
 
@@ -1185,33 +1236,224 @@ public class LogExtractionController implements Initializable {
     }
 
     /**
-     * Add test data to the table to verify it's working properly
-     * This method can be called for debugging table display issues
+     * Generate preview content based on file status and availability
      */
-    public void addTestTableData() {
-        addLogMessage("🧪 Adding test data to verify table functionality...");
+    private String generatePreviewContent(LogFileEntry entry) {
+        String fileName = entry.getFileName();
+        String status = entry.getStatus();
+        String outputDir = outputDirectoryField.getText();
         
-        extractedFiles.clear();
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        // Header for all preview types
+        String header = String.format("=== File Preview: %s ===\n", fileName);
+        header += String.format("Flight: %s\n", flightNumberField.getText());
+        header += String.format("Date: %s\n", incidentDatePicker.getValue());
+        header += String.format("File Size: %s\n", formatFileSize(Long.parseLong(entry.getFileSize())));
+        header += String.format("Status: %s\n", status);
+        header += "=" + "=".repeat(50) + "\n\n";
         
-        // Add several test entries
-        extractedFiles.add(new LogFileEntry("flight_AA123_log1.gz", "1048576", timestamp, "Available", "test://url1"));
-        extractedFiles.add(new LogFileEntry("flight_AA123_log2.gz", "2097152", timestamp, "Available", "test://url2"));
-        extractedFiles.add(new LogFileEntry("flight_AA123_system.log", "512000", timestamp, "Available", "test://url3"));
-        extractedFiles.add(new LogFileEntry("flight_AA123_debug.txt", "256000", timestamp, "Available", "test://url4"));
-        extractedFiles.add(new LogFileEntry("aircraft_telemetry.csv", "5120000", timestamp, "Available", "test://url5"));
-        
-        addLogMessage("📊 Added " + extractedFiles.size() + " test entries to table");
-        addLogMessage("🔍 Table items count: " + extractedFilesTable.getItems().size());
-        
-        // Force refresh
-        extractedFilesTable.refresh();
-        summaryLabel.setText("Test data loaded - " + extractedFiles.size() + " files available for testing");
-        
-        // Enable download buttons for testing
-        downloadAllButton.setDisable(false);
-        unzipAllButton.setDisable(false);
+        switch (status) {
+            case "Available":
+                return header + 
+                    " FILE NOT DOWNLOADED YET\n\n" +
+                    " This file is available for download from Azure DevOps.\n\n" +
+                    " Instructions:\n" +
+                    "1. Select an output directory above\n" +
+                    "2. Click 'Download All' or 'Download Selected' to download this file\n" +
+                    "3. Once downloaded, you can preview the file content here\n\n" +
+                    " Note: You need to download and extract the file first to see its content.";
+                    
+            case "Downloading":
+                return header + 
+                    " FILE DOWNLOAD IN PROGRESS\n\n" +
+                    " Please wait while the file is being downloaded...\n\n" +
+                    " Download may take some time for large files.\n" +
+                    "Once download is complete, you can preview the file content.";
+                    
+            case "Downloaded":
+                // Check if it's a .gz file
+                if (fileName.toLowerCase().endsWith(".gz")) {
+                    return header + 
+                        " FILE DOWNLOADED (COMPRESSED)\n\n" +
+                        " This file is downloaded but still compressed (.gz format).\n\n" +
+                        " Instructions:\n" +
+                        "1. Click 'Unzip All' button to extract compressed files\n" +
+                        "2. After extraction, you can preview the file content here\n\n" +
+                        " Note: You need to unzip the file first to see its content.";
+                } else {
+                    // Try to load actual file content for non-gz files
+                    return loadActualFileContent(entry, header);
+                }
+                
+            case "Unzipping":
+                return header + 
+                    " FILE EXTRACTION IN PROGRESS\n\n" +
+                    " Please wait while the file is being extracted from .gz format...\n\n" +
+                    " Extraction in progress. Large files may take some time.";
+                    
+            case "Extracted":
+                // Load actual file content
+                header="";
+                return loadActualFileContent(entry, header);
+                
+            case "Download Failed":
+                return header + 
+                    " DOWNLOAD FAILED\n\n" +
+                    " Failed to download this file.\n\n" +
+                    " You can try downloading again by clicking 'Download Selected' or 'Download All'.";
+                    
+            case "Unzip Failed":
+                return header + 
+                    " EXTRACTION FAILED\n\n" +
+                    " Failed to extract this compressed file.\n\n" +
+                    " You can try extracting again by clicking 'Unzip All'.";
+                    
+            default:
+                return header + 
+                    " UNKNOWN STATUS\n\n" +
+                    String.format("File status: %s\n\n", status) +
+                    "Unable to determine the current state of this file.";
+        }
     }
+    
+    /**
+     * Load actual file content for preview
+     */
+    private String loadActualFileContent(LogFileEntry entry, String header) {
+        try {
+            String outputDir = outputDirectoryField.getText();
+            if (outputDir.isEmpty()) {
+                return header + 
+                    " NO OUTPUT DIRECTORY SET\n\n" +
+                    "Please set an output directory to locate the downloaded file.";
+            }
+            
+            // Construct file path
+            String fileName = entry.getFileName();
+            // Remove .gz extension if present for extracted files
+            if ("Extracted".equals(entry.getStatus()) && fileName.endsWith(".gz")) {
+                fileName = fileName.substring(0, fileName.length() - 3);
+            }
+            
+            // Try to find the file in the directory structure
+            Path foundFilePath = findFileInDirectory(outputDir, fileName);
+            
+            if (foundFilePath != null && Files.exists(foundFilePath)) {
+                // Get file size for display
+                long actualSize = Files.size(foundFilePath);
+//
+                  String  preview="";
+                
+                // Load file content preview
+                String content = fileDownloadService.getFilePreview(foundFilePath.toString(), 50);
+                
+                if (content != null && !content.trim().isEmpty()) {
+                    preview += content;
+                    
+                    // Add footer
+                    preview += "\n\n" + "-".repeat(100) + "\n";
+                } else {
+                    preview += " File is empty or contains no readable text content.";
+                }
+                
+                return preview;
+            } else {
+                // File not found, provide detailed search information
+                Path expectedPath = Paths.get(outputDir).resolve(fileName);
+                return header + 
+                    " FILE NOT FOUND ON DISK\n\n" +
+                    String.format("Expected location: %s\n", expectedPath.toString()) +
+                    String.format("Searched in directory: %s\n\n", outputDir) +
+                    " The file may be in a subdirectory. Checking common locations...\n" +
+                    getFileSearchInfo(outputDir, fileName) +
+                    "\n\nThe file may have been moved or deleted. Try downloading again.";
+            }
+        } catch (Exception e) {
+            return header + 
+                " ERROR READING FILE\n\n" +
+                String.format("Error: %s\n\n", e.getMessage()) +
+                "Unable to read file content for preview.";
+        }
+    }
+    
+    /**
+     * Find a file in the directory structure by searching recursively
+     */
+    private Path findFileInDirectory(String rootDir, String fileName) {
+        try {
+            Path rootPath = Paths.get(rootDir);
+            if (!Files.exists(rootPath)) {
+                return null;
+            }
+            
+            // Use Files.walk to search recursively through the directory structure
+            try (Stream<Path> pathStream = Files.walk(rootPath)) {
+                return pathStream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().equals(fileName))
+                    .findFirst()
+                    .orElse(null);
+            }
+        } catch (Exception e) {
+            addLogMessage("Error searching for file " + fileName + ": " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Get information about file search in directory structure
+     */
+    private String getFileSearchInfo(String rootDir, String fileName) {
+        try {
+            Path rootPath = Paths.get(rootDir);
+            if (!Files.exists(rootPath)) {
+                return " Root directory does not exist: " + rootDir;
+            }
+            
+            StringBuilder searchInfo = new StringBuilder();
+            List<Path> foundSimilar = new ArrayList<>();
+            List<String> subdirectories = new ArrayList<>();
+            
+            // Search for similar files and subdirectories
+            try (Stream<Path> pathStream = Files.walk(rootPath, 3)) { // Limit depth to avoid deep recursion
+                pathStream.forEach(path -> {
+                    if (Files.isDirectory(path) && !path.equals(rootPath)) {
+                        subdirectories.add(rootPath.relativize(path).toString());
+                    } else if (Files.isRegularFile(path)) {
+                        String foundFileName = path.getFileName().toString();
+                        if (foundFileName.toLowerCase().contains(fileName.toLowerCase().substring(0, Math.min(5, fileName.length())))) {
+                            foundSimilar.add(rootPath.relativize(path));
+                        }
+                    }
+                });
+            }
+            
+            if (!subdirectories.isEmpty()) {
+                searchInfo.append("\n Found subdirectories:\n");
+                for (int i = 0; i < Math.min(5, subdirectories.size()); i++) {
+                    searchInfo.append("  - ").append(subdirectories.get(i)).append("\n");
+                }
+                if (subdirectories.size() > 5) {
+                    searchInfo.append("  ... and ").append(subdirectories.size() - 5).append(" more\n");
+                }
+            }
+            
+            if (!foundSimilar.isEmpty()) {
+                searchInfo.append("\n Found similar files:\n");
+                for (int i = 0; i < Math.min(3, foundSimilar.size()); i++) {
+                    searchInfo.append("  - ").append(foundSimilar.get(i).toString()).append("\n");
+                }
+                if (foundSimilar.size() > 3) {
+                    searchInfo.append("  ... and ").append(foundSimilar.size() - 3).append(" more\n");
+                }
+            }
+            
+            return searchInfo.toString();
+            
+        } catch (Exception e) {
+            return " Error searching directory: " + e.getMessage();
+        }
+    }
+
 
     private void showAlert(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.WARNING);
