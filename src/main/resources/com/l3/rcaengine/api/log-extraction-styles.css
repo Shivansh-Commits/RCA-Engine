@@ -1,0 +1,163 @@
+/* Log Extraction Module Styles - Matching Log Parser */
+.content-panel {
+    -fx-background-color: #2b3e2b;
+    -fx-border-color: #e9ecef;
+    -fx-border-width: 1;
+    -fx-border-radius: 0;
+    -fx-background-radius: 6;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.02), 2, 0.0, 0, 1);
+    -fx-padding: 12;
+}
+/* Extract Logs Button - Green theme matching Process Button */
+#extractButton {
+    -fx-background-color: white;
+    -fx-text-fill: #2c472c;
+    -fx-font-weight: 600;
+    -fx-border-color: #2c472c;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+#extractButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #d1f0d1);
+    -fx-border-color: #6ba86b;
+    -fx-text-fill: #2b3e2b;
+}
+
+#extractButton:pressed {
+    -fx-background-color: #3d633d;
+}
+
+#configureButton {
+    -fx-background-color: white;
+    -fx-text-fill: #4694e8;
+    -fx-font-weight: 600;
+    -fx-border-color: #589ee8;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+#configureButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white , #c3cfe8);
+    -fx-border-color: #589ee8;
+    -fx-text-fill : #236cc2;
+}
+
+#configureButton:pressed {
+    -fx-background-color: linear-gradient(to bottom, #c3d7da, #78b4f5) !important;
+}
+
+/* Download All Button - Blue theme matching Save Button */
+#downloadAllButton {
+    -fx-background-color: white;
+    -fx-text-fill: #4694e8;
+    -fx-font-weight: 600;
+    -fx-border-color: #589ee8;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+#downloadAllButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #c3cfe8);
+    -fx-border-color: #589ee8;
+    -fx-text-fill: #236cc2;
+}
+
+#downloadAllButton:pressed {
+    -fx-background-color: linear-gradient(to bottom, #c3d7da, #78b4f5) !important;
+}
+
+#downloadAllButton:disabled {
+    -fx-background-color: #f0f0f0;
+    -fx-text-fill: #999999;
+    -fx-border-color: #cccccc;
+}
+
+/* Download Selected Button - Blue theme variant */
+#downloadSelectedButton {
+    -fx-background-color: white;
+    -fx-text-fill: #4694e8;
+    -fx-font-weight: 600;
+    -fx-border-color: #589ee8;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+#downloadSelectedButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #c3cfe8);
+    -fx-border-color: #589ee8;
+    -fx-text-fill: #236cc2;
+}
+
+#downloadSelectedButton:pressed {
+    -fx-background-color: linear-gradient(to bottom, #c3d7da, #78b4f5) !important;
+}
+
+#downloadSelectedButton:disabled {
+    -fx-background-color: #f0f0f0;
+    -fx-text-fill: #999999;
+    -fx-border-color: #cccccc;
+}
+
+/* Clear All Button - Red theme matching Clear Button */
+#clearButton {
+    -fx-background-color: white;
+    -fx-border-color: #f5a4a4;
+    -fx-text-fill: #8b0000;
+    -fx-font-weight: 600;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+#clearButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #eddada);
+    -fx-border-color: #f77777;
+}
+
+#clearButton:pressed {
+    -fx-background-color: #c75a5a;
+}
+
+/* Browse Button - Gray theme */
+.browseButton {
+    -fx-background-color: white;
+    -fx-text-fill: black;
+    -fx-font-weight: 600;
+    -fx-border-color: grey;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+.browseButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #e6e8e6);
+    -fx-border-color: grey;
+    -fx-text-fill: black;
+}
+
+.browseButton:pressed {
+    -fx-background-color: linear-gradient(to bottom, white, #caccca);
+}

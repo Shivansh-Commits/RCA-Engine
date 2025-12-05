@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox prefHeight="400" prefWidth="600" styleClass="splash-root" stylesheets="@splash-styles.css" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/21" fx:controller="com.l3.rcaengine.controller.SplashScreenController">
+
+    <VBox fx:id="splashContent" styleClass="splash-container">
+        <ImageView fx:id="logoImageView" fitHeight="120" fitWidth="120" pickOnBounds="true" preserveRatio="true" styleClass="splash-logo" />
+
+        <Label styleClass="splash-title" text="API/PNR Engine" />
+        <Label alignment="CENTER" styleClass="splash-subtitle" text="Initializing..." />
+
+        <ProgressBar fx:id="progressBar" prefWidth="400" progress="0" styleClass="splash-progress" />
+    </VBox>
+
+</VBox>
