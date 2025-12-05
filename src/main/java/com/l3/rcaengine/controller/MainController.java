@@ -6,6 +6,8 @@ import com.l3.rcaengine.api.utils.ParseResult;
 import com.l3.rcaengine.pnr.PnrgovProcessor;
 import com.l3.rcaengine.common.reporting.ExcelReportGenerator;
 import com.l3.common.util.VersionUtil;
+import com.l3.common.util.ErrorHandler;
+import com.l3.common.util.ErrorCodes;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.*;
@@ -209,7 +211,7 @@ public class MainController {
             result = parser.parseFolder(selectedFolder);
         } catch (Exception ex) {
             ex.printStackTrace();
-            showAlert("Error", "Failed to parse files: " + ex.getMessage());
+            ErrorHandler.showError(ErrorCodes.RCA001, ex);
             return;
         }
 
@@ -302,7 +304,7 @@ public class MainController {
             
         } catch (Exception ex) {
             ex.printStackTrace();
-            showAlert("Error", "Failed to process PNR files: " + ex.getMessage());
+            ErrorHandler.showError(ErrorCodes.RCA002, ex);
         }
     }
     
@@ -388,7 +390,7 @@ public class MainController {
     private void onProcess() {
 
         if (selectedFolder == null) {
-            showAlert("No folder chosen", "Choose a folder containing input and output files first.");
+            ErrorHandler.showError(ErrorCodes.RCA001, "No folder has been selected for processing. Please click 'Choose Folder' to select a folder containing input/ and output/ subdirectories with passenger data files.");
             return;
         }
 
@@ -413,7 +415,7 @@ public class MainController {
             outputPaxTable.getItems().isEmpty() &&
             droppedPassengersTable.getItems().isEmpty() &&
             duplicatePassengersTable.getItems().isEmpty()) {
-            showAlert("No Data", "Please process data first before exporting.");
+            ErrorHandler.showError(ErrorCodes.RCA001, "No data available to export. Please process passenger files first by selecting a folder and clicking 'Process'.");
             return;
         }
 
@@ -475,11 +477,11 @@ public class MainController {
                 if (!warnings.isEmpty()) {
                     successMessage += "\n\nWarnings sheet included with " + warnings.size() + " warning(s).";
                 }
-                showAlert("Export Successful", successMessage);
+                ErrorHandler.showInfo("Export Successful", successMessage);
 
             } catch (Exception e) {
                 e.printStackTrace();
-                showAlert("Export Error", "Failed to export report: " + e.getMessage());
+                ErrorHandler.showError(ErrorCodes.RCA004, e);
             }
         }
     }
@@ -495,13 +497,6 @@ public class MainController {
         }
     }
 
-    private void showAlert(String title, String msg) {
-        Alert a = new Alert(Alert.AlertType.INFORMATION);
-        a.setHeaderText(title);
-        a.setContentText(msg);
-        a.showAndWait();
-    }
-    
     private void updateTableHeadersForPNRMode() {
         // Update headers for PNR mode: No | Passenger Name | Locator | Source | Count
         inputPaxColName.setText("Passenger Name");

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+
+<BorderPane prefHeight="700.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logparser.controller.AdvancedConfigController">
+    <center>
+        <TabPane prefHeight="650.0" prefWidth="880.0">
+            <tabs>
+                <!-- API Configuration Tab -->
+                <Tab text="API Configuration" closable="false">
+                    <content>
+                        <VBox spacing="10.0">
+                            <padding>
+                                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                            </padding>
+                            <children>
+                                <!-- Message Start Patterns Section -->
+                                <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="Message Start Patterns" />
+                                <TableView fx:id="patternsTable" prefHeight="300.0" VBox.vgrow="ALWAYS">
+                                    <columns>
+                                        <TableColumn fx:id="patternNameColumn" prefWidth="150.0" text="Pattern Name" />
+                                        <TableColumn fx:id="patternTypeColumn" prefWidth="120.0" text="Type" />
+                                        <TableColumn fx:id="patternValueColumn" prefWidth="350.0" text="Value/Description" />
+                                        <TableColumn fx:id="patternEnabledColumn" prefWidth="80.0" text="Enabled" />
+                                    </columns>
+                                </TableView>
+
+                                <!-- Pattern Management Buttons -->
+                                <HBox spacing="10.0">
+                                    <children>
+                                        <Button fx:id="addPatternButton" onAction="#onAddPattern" text="Add Pattern" />
+                                        <Button fx:id="editPatternButton" onAction="#onEditPattern" text="Edit Pattern" />
+                                        <Button fx:id="removePatternButton" onAction="#onRemovePattern" text="Remove Pattern" />
+                                    </children>
+                                </HBox>
+
+                                <!-- Segment Codes Section -->
+                                <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="Segment Codes Configuration" />
+                                <GridPane hgap="10.0" vgap="10.0">
+                                    <columnConstraints>
+                                        <ColumnConstraints minWidth="200.0" />
+                                        <ColumnConstraints minWidth="100.0" />
+                                        <ColumnConstraints minWidth="200.0" />
+                                        <ColumnConstraints minWidth="100.0" />
+                                    </columnConstraints>
+
+                                    <!-- BGM Codes -->
+                                    <Label text="BGM Passenger Code:" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                                    <TextField fx:id="bgmPassengerField" promptText="745" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                                    <Label text="BGM Crew Code:" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                                    <TextField fx:id="bgmCrewField" promptText="250" GridPane.columnIndex="3" GridPane.rowIndex="0" />
+
+                                    <!-- LOC Codes -->
+                                    <Label text="LOC Departure Code:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                                    <TextField fx:id="locDepartureField" promptText="125" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+                                    <Label text="LOC Arrival Code:" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                                    <TextField fx:id="locArrivalField" promptText="87" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+
+                                    <!-- DTM Codes -->
+                                    <Label text="DTM Departure Code:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                                    <TextField fx:id="dtmDepartureField" promptText="189" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+                                    <Label text="DTM Arrival Code:" GridPane.columnIndex="2" GridPane.rowIndex="2" />
+                                    <TextField fx:id="dtmArrivalField" promptText="232" GridPane.columnIndex="3" GridPane.rowIndex="2" />
+
+                                    <!-- TDT Position -->
+                                    <Label text="TDT Flight Number Position:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+                                    <TextField fx:id="tdtFlightPositionField" promptText="2" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                                </GridPane>
+
+                            </children>
+                        </VBox>
+                    </content>
+                </Tab>
+
+                <!-- PNR Configuration Tab (Disabled for now) -->
+                <Tab text="PNR Configuration" closable="false" disable="true">
+                    <content>
+                        <VBox spacing="10.0">
+                            <padding>
+                                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                            </padding>
+                            <children>
+                                <Label style="-fx-font-size: 16px; -fx-text-fill: gray;" text="PNR Configuration will be available in future versions." />
+                            </children>
+                        </VBox>
+                    </content>
+                </Tab>
+            </tabs>
+        </TabPane>
+    </center>
+
+    <!-- Dialog Buttons -->
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="10.0">
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+            </padding>
+            <children>
+                <Button fx:id="resetButton" onAction="#onReset" text="Reset to Defaults" />
+                <Button fx:id="cancelButton" onAction="#onCancel" text="Cancel" />
+                <Button fx:id="saveButton" defaultButton="true" onAction="#onSave" text="Save" />
+            </children>
+        </HBox>
+    </bottom>
+</BorderPane>

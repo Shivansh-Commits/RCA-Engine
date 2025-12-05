@@ -21,9 +21,9 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane prefHeight="962.0" prefWidth="1025.0" style="-fx-background-color: #2b3e2b;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logparser.controller.MessageExtractorController">
+<BorderPane prefHeight="884.0" prefWidth="1284.0" style="-fx-background-color: #2b3e2b;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logparser.controller.MessageParserController">
     <center>
-        <SplitPane dividerPositions="0.4" orientation="VERTICAL">
+        <SplitPane dividerPositions="0.5851868327402135" orientation="VERTICAL">
             <items>
                 <VBox spacing="10.0">
                     <children>
@@ -34,14 +34,19 @@
                                     <children>
                                         <Label minWidth="120.0" text="Log Directory :" />
                                         <TextField fx:id="logDirectoryField" HBox.hgrow="ALWAYS" />
-                                        <Button fx:id="browseButton" minWidth="90.0" onAction="#onBrowseLogDirectory" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse...">
+                                        <Button fx:id="browseButton" minWidth="110.0" onAction="#onBrowseLogDirectory" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Browse...">
                                  <tooltip>
                                     <Tooltip text="Only .txt files are valid" />
                                  </tooltip></Button>
-                                        <ToggleButton fx:id="multiNodeToggleButton" minWidth="90.0" onAction="#onMultiNodeToggle" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Multi-node ON">
+                                        <ToggleButton fx:id="multiNodeToggleButton" minWidth="110.0" onAction="#onMultiNodeToggle" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Multi-node ON">
                                  <tooltip>
                                     <Tooltip text="Enable to process n1, n2, n3 folders" />
                                  </tooltip></ToggleButton>
+                                        <Button fx:id="advancedConfigButton" minWidth="110.0" onAction="#onAdvancedConfig" styleClass="browseButton" stylesheets="@log-parser-styles.css" text="Advanced Config">
+                                           <tooltip>
+                                              <Tooltip text="Configure message patterns and segment codes" />
+                                           </tooltip>
+                                        </Button>
                                     </children>
                                 </HBox>
                                 <HBox alignment="CENTER_LEFT" spacing="10.0">
