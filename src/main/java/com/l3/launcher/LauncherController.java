@@ -134,7 +134,7 @@ public class LauncherController implements Initializable {
                          "• Comprehensive reporting and export capabilities\n" +
                          "• User-friendly interfaces for all skill levels\n\n" +
 
-                         "AUTHORS:\n" +
+
                          "Developed by:\n" +
                          "- Shivansh Singh Bhadouria (Shivansh.Bhadouria@sita.aero)\n"+
                          "- Ujjawal Chaudhary (Ujjawal.1@sita.aero)\n"+
