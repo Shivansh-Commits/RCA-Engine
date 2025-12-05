@@ -197,6 +197,7 @@ public class LogExtractionController implements Initializable {
         azureConfig = new AzureConfig();
         pipelineService = new AzurePipelineService(azureConfig);
         fileDownloadService = new FileDownloadService(azureConfig);
+        fileDownloadService.setLogExtractionController(this);
         // statusChecker will be created per extraction to avoid reuse issues
     }
 
@@ -547,6 +548,7 @@ public class LogExtractionController implements Initializable {
                 }
                 pipelineService = new AzurePipelineService(azureConfig);
                 fileDownloadService = new FileDownloadService(azureConfig);
+                fileDownloadService.setLogExtractionController(this);
 
                 // Save configuration to file
                 boolean saved = azureConfig.saveToFile();
@@ -1188,6 +1190,29 @@ public class LogExtractionController implements Initializable {
                 logArea.setScrollTop(Double.MAX_VALUE);
             });
         }
+    }
+
+    /**
+     * Update file size for a specific file in the table
+     * Called by FileDownloadService after recalculating actual file sizes
+     */
+    public void updateFileSize(String fileName, long actualSize) {
+        Platform.runLater(() -> {
+            boolean updated = false;
+            for (LogFileEntry entry : extractedFiles) {
+                if (entry.getFileName().equals(fileName)) {
+                    String formattedSize = formatFileSize(actualSize);
+                    entry.setFileSize(String.valueOf(actualSize)); // Store as string (bytes)
+                    updated = true;
+                    addLogMessage(" Updated size for " + fileName + ": " + formattedSize);
+                    break;
+                }
+            }
+
+            if (updated) {
+                extractedFilesTable.refresh();
+            }
+        });
     }
 
     /**

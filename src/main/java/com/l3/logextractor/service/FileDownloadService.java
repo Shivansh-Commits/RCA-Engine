@@ -37,12 +37,19 @@ public class FileDownloadService {
     private final AzureConfig config;
     private final ObjectMapper objectMapper;
     private final CloseableHttpClient httpClient;
-    private final LogExtractionController logExtractionController= new LogExtractionController();
+    private LogExtractionController logExtractionController;
 
     public FileDownloadService(AzureConfig config) {
         this.config = config;
         this.objectMapper = new ObjectMapper();
         this.httpClient = HttpClients.createDefault();
+    }
+
+    /**
+     * Set the LogExtractionController reference for UI updates
+     */
+    public void setLogExtractionController(LogExtractionController controller) {
+        this.logExtractionController = controller;
     }
 
     /**
@@ -400,11 +407,62 @@ public class FileDownloadService {
 
         if (allSuccessful) {
             logCallback.accept("All artifacts downloaded successfully!");
+
+            // Recalculate actual file sizes after download completion
+            recalculateFileSizes(outputDir, logCallback);
+
         } else {
             logCallback.accept("Some artifacts failed to download. Check logs for details.");
         }
 
         return allSuccessful;
+    }
+
+    /**
+     * Recalculate actual file sizes after download completion
+     */
+    public void recalculateFileSizes(String outputDir, Consumer<String> logCallback) {
+        try {
+            Path dirPath = Paths.get(outputDir);
+            if (!Files.exists(dirPath)) {
+                logCallback.accept("Output directory does not exist: " + outputDir);
+                return;
+            }
+
+            logCallback.accept("Recalculating file sizes in: " + outputDir);
+
+            // Get all files in the directory (flat structure)
+            try (Stream<Path> files = Files.walk(dirPath, 1)) { // Only scan direct children, not subdirectories
+                List<Path> downloadedFiles = files
+                    .filter(Files::isRegularFile)
+                    .filter(path -> !path.getFileName().toString().startsWith(".")) // Skip hidden files
+                    .toList();
+
+                int updatedCount = 0;
+                for (Path file : downloadedFiles) {
+                    try {
+                        long actualSize = Files.size(file);
+                        String fileName = file.getFileName().toString();
+
+                        // Notify controller to update the table with actual size
+                        if (logExtractionController != null) {
+                            logExtractionController.updateFileSize(fileName, actualSize);
+                        }
+
+                        logCallback.accept("Updated size for " + fileName + ": " + formatFileSize(actualSize));
+                        updatedCount++;
+                    } catch (Exception e) {
+                        logCallback.accept("Error calculating size for " + file.getFileName() + ": " + e.getMessage());
+                    }
+                }
+
+                logCallback.accept("File size recalculation completed. Updated " + updatedCount + " files.");
+
+            }
+
+        } catch (Exception e) {
+            logCallback.accept("Error during file size recalculation: " + e.getMessage());
+        }
     }
 
     /**
