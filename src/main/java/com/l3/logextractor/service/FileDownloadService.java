@@ -3,7 +3,6 @@ package com.l3.logextractor.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.l3.logextractor.config.AzureConfig;
-import com.l3.logextractor.model.ArtifactInfo;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -23,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -251,7 +249,7 @@ public class FileDownloadService {
                     
                     // Skip hidden/system files
                     if (fileName.startsWith(".") || fileName.startsWith("__") || fileName.isEmpty()) {
-                        logCallback.accept("⏭️ Skipping system file: " + fileName);
+                        logCallback.accept(" Skipping system file: " + fileName);
                         continue;
                     }
                     
@@ -275,7 +273,7 @@ public class FileDownloadService {
                             counter++;
                         } while (Files.exists(filePath));
                         
-                        logCallback.accept("📄 File conflict resolved: " + zipEntry.getName() + " -> " + fileName);
+                        logCallback.accept(" File conflict resolved: " + zipEntry.getName() + " -> " + fileName);
                     }
 
                     try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
