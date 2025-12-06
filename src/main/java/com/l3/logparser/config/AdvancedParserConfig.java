@@ -40,6 +40,13 @@ public class AdvancedParserConfig {
     }
 
     /**
+     * Reset configuration to default values only (without loading from file)
+     */
+    public void resetToDefaults() {
+        loadDefaultConfiguration();
+    }
+
+    /**
      * Load configuration from user config file
      */
     public void loadFromFile() {
