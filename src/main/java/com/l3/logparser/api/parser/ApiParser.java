@@ -195,6 +195,27 @@ public class ApiParser {
                     inMessage = true;
                     messageType = determineMessageType(startPattern, line);
 
+                    // CRITICAL FIX: Parse UNA segment immediately to set separators
+                    // This ensures isEdifactContent() uses correct separators for subsequent lines
+                    if (extractedContent.startsWith("UNA") || extractedContent.contains("UNA")) {
+                        String unaLine = extractedContent;
+                        if (extractedContent.contains("UNA")) {
+                            // Extract just the UNA line if it's part of a larger message
+                            int unaIndex = extractedContent.indexOf("UNA");
+                            int endIndex = unaIndex + 9; // UNA + 6 separators
+                            if (endIndex <= extractedContent.length()) {
+                                unaLine = extractedContent.substring(unaIndex, endIndex);
+                            }
+                        }
+                        parseUNA(unaLine);
+                        if (debugMode && debugLogger != null) {
+                            debugLogger.accept("Parsed UNA separators early: element='" + elementSeparator + "' terminator='" + terminatorSeparator + "'");
+                        }
+                    } else {
+                        // No UNA, use defaults
+                        setDefaultSeparators();
+                    }
+
                     if (debugMode && debugLogger != null) {
                         debugLogger.accept("[Line " + lineNumber + "] Started new message with pattern: " + startPattern);
                     }
@@ -378,8 +399,8 @@ public class ApiParser {
                line.startsWith("LOC") ||
                line.startsWith("DTM") ||
                line.startsWith("NAD") ||
-               line.contains("+") || // Element separator
-               line.contains("'"); // Terminator separator
+               line.contains(String.valueOf(elementSeparator)) || // Use dynamic element separator
+               line.contains(String.valueOf(terminatorSeparator)); // Use dynamic terminator separator
     }
 
     /**
