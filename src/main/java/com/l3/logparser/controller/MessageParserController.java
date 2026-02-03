@@ -83,7 +83,7 @@ public class MessageParserController implements Initializable {
     private PnrExtractionService pnrExtractionService;
     private MessageParserService.ExtractionResult lastResult;
     private boolean debugMode = false;
-    private boolean multiNodeMode = true;
+    private boolean multiNodeMode = false;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -229,8 +229,8 @@ public class MessageParserController implements Initializable {
         arrivalAirportField.setPromptText("e.g., DUB");
         departureDatePicker.setPromptText("Select departure date");
 
-        // Initialize multi-node toggle to ON by default
-        multiNodeToggleButton.setSelected(true);
+        // Initialize multi-node toggle to OFF by default
+        multiNodeToggleButton.setSelected(false);
     }
 
     private void setupDataTypeComboBox() {
@@ -280,6 +280,8 @@ public class MessageParserController implements Initializable {
         File selectedDirectory = directoryChooser.showDialog(getStage());
         if (selectedDirectory != null) {
             logDirectoryField.setText(selectedDirectory.getAbsolutePath());
+            // Also set the output directory to the same path for convenience
+            outputDirectoryField.setText(selectedDirectory.getAbsolutePath());
         }
     }
 
