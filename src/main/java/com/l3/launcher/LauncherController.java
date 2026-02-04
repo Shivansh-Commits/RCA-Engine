@@ -64,7 +64,7 @@ public class LauncherController implements Initializable {
             messageExtractorApp.start(logParserStage);
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Failed to launch Message Extractor Module: " + e.getMessage());
+            System.err.println("Failed to launch Log Parser Module: " + e.getMessage());
         }
     }
 

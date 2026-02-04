@@ -18,7 +18,7 @@ public class MessageExtractorApplication extends Application {
         FXMLLoader fxmlLoader = new FXMLLoader(MessageExtractorApplication.class.getResource("/com/l3/rcaengine/api/log-parser-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load());
 
-        primaryStage.setTitle("L3 Engine - Message Extractor Module");
+        primaryStage.setTitle("L3 Engine - Log Parser Module");
         primaryStage.setScene(scene);
         primaryStage.setMaximized(true);
         primaryStage.setResizable(true);
