@@ -56,6 +56,14 @@ public class AzurePipelineService {
             templateParameters.put("log_date", request.getIncidentDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
             templateParameters.put("target_env", request.getEnvironment());
 
+            // Add log files list to template parameters
+            if (request.getLogFiles() != null && !request.getLogFiles().isEmpty()) {
+                // Convert list to comma-separated string for Ansible script
+                String logFilesStr = String.join(",", request.getLogFiles());
+                templateParameters.put("log_files", logFilesStr);
+                logCallback.accept("Log files to search: " + logFilesStr);
+            }
+
             requestBody.put("templateParameters", templateParameters);
 
             // Specify the branch to run the pipeline on

@@ -161,3 +161,144 @@
 .browseButton:pressed {
     -fx-background-color: linear-gradient(to bottom, white, #caccca);
 }
+
+/* Delete Button - Red theme */
+.deleteButton {
+    -fx-background-color: white;
+    -fx-border-color: #e74c3c;
+    -fx-text-fill: #c0392b;
+    -fx-font-weight: 600;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+.deleteButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #fadbd8);
+    -fx-border-color: #e74c3c;
+    -fx-text-fill: #a93226;
+}
+
+.deleteButton:pressed {
+    -fx-background-color: #e74c3c;
+    -fx-text-fill: white;
+}
+
+.deleteButton:disabled {
+    -fx-background-color: #f0f0f0;
+    -fx-text-fill: #999999;
+    -fx-border-color: #cccccc;
+}
+
+/* Action Button - Green theme */
+.actionButton {
+    -fx-background-color: white;
+    -fx-text-fill: #2c472c;
+    -fx-font-weight: 600;
+    -fx-border-color: #2c472c;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+.actionButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #d5f4e6);
+    -fx-border-color: #2c472c;
+    -fx-text-fill: #1e8449;
+}
+
+.actionButton:pressed {
+    -fx-background-color: linear-gradient(to bottom, white, #27ae60);
+    -fx-text-fill: white;
+}
+
+.actionButton:disabled {
+    -fx-background-color: #f0f0f0;
+    -fx-text-fill: #999999;
+    -fx-border-color: #cccccc;
+}
+
+/* Primary Button - Generic */
+.primaryButton {
+    -fx-background-color: white;
+    -fx-text-fill: #2c472c;
+    -fx-font-weight: 600;
+    -fx-border-color: #2c472c;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+.primaryButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #d1f0d1);
+    -fx-border-color: #6ba86b;
+    -fx-text-fill: #2b3e2b;
+}
+
+.primaryButton:pressed {
+    -fx-background-color: #3d633d;
+    -fx-text-fill: white;
+}
+
+.primaryButton:disabled {
+    -fx-background-color: #f0f0f0;
+    -fx-text-fill: #999999;
+    -fx-border-color: #cccccc;
+}
+
+/* Secondary Button - Generic */
+.secondaryButton {
+    -fx-background-color: white;
+    -fx-text-fill: #666666;
+    -fx-font-weight: 600;
+    -fx-border-color: #999999;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 12px;
+    -fx-padding: 4 8;
+}
+
+.secondaryButton:hover {
+    -fx-background-color: linear-gradient(to bottom, white, #e6e6e6);
+    -fx-border-color: #666666;
+    -fx-text-fill: #333333;
+}
+
+.secondaryButton:pressed {
+    -fx-background-color: #999999;
+    -fx-text-fill: white;
+}
+
+.secondaryButton:disabled {
+    -fx-background-color: #f0f0f0;
+    -fx-text-fill: #999999;
+    -fx-border-color: #cccccc;
+}
+
+/* Section Label */
+.section-label {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-text-fill: #2c3e50;
+}
+
+/* Input Section */
+.input-section {
+    -fx-background-color: #f8f9fa;
+    -fx-padding: 12;
+    -fx-background-radius: 6;
+    -fx-border-color: #e9ecef;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+}

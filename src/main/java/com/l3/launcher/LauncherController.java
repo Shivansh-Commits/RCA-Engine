@@ -112,17 +112,17 @@ public class LauncherController implements Initializable {
 
                          "AVAILABLE MODULES:\n\n" +
 
-                         "🗂️ Log Extraction Engine:\n" +
+                         " Log Extraction Engine:\n" +
                          "   • Automated flight log extraction from Azure DevOps pipelines\n" +
                          "   • Flight-specific log collection based on flight number and dates\n" +
                          "   • Real-time pipeline monitoring and artifact management\n\n" +
 
-                         "🔍 Log Parser Engine:\n" +
+                         "Log Parser Engine:\n" +
                          "   • Advanced EDIFACT/PNR message extraction from flight logs\n" +
                          "   • Support for API and PNR data types with intelligent filtering\n" +
                          "   • Multi-node processing capabilities for large datasets\n\n" +
 
-                         "⚙️ RCA Engine (Root Cause Analysis):\n" +
+                         "RCA Engine (Root Cause Analysis):\n" +
                          "   • Comprehensive passenger data processing and analysis\n" +
                          "   • Automated discrepancy detection and data reconciliation\n" +
                          "   • Advanced reporting with Excel export functionality\n\n" +
