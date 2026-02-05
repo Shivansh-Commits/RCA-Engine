@@ -159,21 +159,53 @@ public class PnrEdifactParser {
             if (unaEnd == -1) unaEnd = Math.min(unaIndex + 15, edifactContent.length());
             
             String unaSegment = edifactContent.substring(unaIndex, unaEnd).trim();
-            return PnrSeparators.fromUnaSegment(unaSegment);
+            System.out.println("[INFO] Found UNA segment: " + unaSegment);
+            PnrSeparators separators = PnrSeparators.fromUnaSegment(unaSegment);
+            System.out.println("[INFO] Using separators from UNA: " + separators);
+            return separators;
         }
         
-        // Fallback to UNB segment
+        // UNA not found - fallback to UNB segment
+        System.out.println("[INFO] UNA segment not found, extracting separators from UNB segment");
         int unbIndex = edifactContent.indexOf("UNB");
         if (unbIndex >= 0) {
-            int unbEnd = edifactContent.indexOf('\n', unbIndex);
-            if (unbEnd == -1) unbEnd = edifactContent.indexOf('\'', unbIndex + 3);
-            if (unbEnd == -1) unbEnd = Math.min(unbIndex + 100, edifactContent.length());
-            
-            String unbSegment = edifactContent.substring(unbIndex, unbEnd + 1).trim();
-            return PnrSeparators.fromUnbSegment(unbSegment);
+            // Find the end of UNB segment - look for segment terminator
+            int unbEnd = -1;
+
+            // Try to find the terminator character (typically ')
+            // First, detect what the element separator is (character right after UNB)
+            char elementSep = edifactContent.charAt(unbIndex + 3);
+
+            // Now look for common terminators after UNB
+            for (int i = unbIndex + 4; i < Math.min(unbIndex + 200, edifactContent.length()); i++) {
+                char c = edifactContent.charAt(i);
+                if (c == '\'' || c == '~' || c == '!') {
+                    unbEnd = i + 1;
+                    break;
+                }
+                // Also check for newline as potential segment boundary
+                if (c == '\n' || c == '\r') {
+                    String potentialSegment = edifactContent.substring(unbIndex, i).trim();
+                    if (potentialSegment.length() > 20) { // UNB should be reasonably long
+                        unbEnd = i;
+                        break;
+                    }
+                }
+            }
+
+            if (unbEnd == -1) {
+                unbEnd = Math.min(unbIndex + 150, edifactContent.length());
+            }
+
+            String unbSegment = edifactContent.substring(unbIndex, unbEnd).trim();
+            System.out.println("[INFO] Found UNB segment: " + unbSegment);
+            PnrSeparators separators = PnrSeparators.fromUnbSegment(unbSegment);
+            System.out.println("[INFO] Using separators from UNB: " + separators);
+            return separators;
         }
         
-        // Return default separators if neither found
+        // Neither UNA nor UNB found - return default separators
+        System.out.println("[WARN] Neither UNA nor UNB segment found, using default separators");
         return PnrSeparators.DEFAULT;
     }
 
@@ -566,3 +598,4 @@ public class PnrEdifactParser {
         return flightNumber;
     }
 }
+
