@@ -29,7 +29,7 @@
 }
 
 #extractButton:pressed {
-    -fx-background-color: #3d633d;
+    -fx-background-color: linear-gradient(to top, white, #2c472c);
 }
 
 #configureButton {
@@ -52,7 +52,7 @@
 }
 
 #configureButton:pressed {
-    -fx-background-color: linear-gradient(to bottom, #c3d7da, #78b4f5) !important;
+    -fx-background-color: linear-gradient(to top, white, #589ee8) !important;
 }
 
 /* Download All Button - Blue theme matching Save Button */
@@ -135,7 +135,7 @@
 }
 
 #clearButton:pressed {
-    -fx-background-color: #c75a5a;
+    -fx-background-color: linear-gradient(to top, white, #f5a4a4);;
 }
 
 /* Browse Button - Gray theme */
@@ -183,8 +183,8 @@
 }
 
 .deleteButton:pressed {
-    -fx-background-color: #e74c3c;
-    -fx-text-fill: white;
+    -fx-background-color: linear-gradient(to top, white, #fadbd8);;
+    -fx-text-fill: #e74c3c;
 }
 
 .deleteButton:disabled {
@@ -193,12 +193,12 @@
     -fx-border-color: #cccccc;
 }
 
-/* Action Button - Green theme */
+/* Search Profiles Button */
 .actionButton {
     -fx-background-color: white;
-    -fx-text-fill: #2c472c;
+    -fx-text-fill: #4b2c5e;        /* dark purple text */
     -fx-font-weight: 600;
-    -fx-border-color: #2c472c;
+    -fx-border-color: #7a4fa3;     /* purple border */
     -fx-border-width: 1px;
     -fx-border-radius: 4px;
     -fx-background-radius: 4px;
@@ -208,14 +208,14 @@
 }
 
 .actionButton:hover {
-    -fx-background-color: linear-gradient(to bottom, white, #d5f4e6);
-    -fx-border-color: #2c472c;
-    -fx-text-fill: #1e8449;
+    -fx-background-color: linear-gradient(to bottom, white, #e6d9f2);
+    -fx-border-color: #9b6cc4;
+    -fx-text-fill: #3f1f52;
 }
 
 .actionButton:pressed {
-    -fx-background-color: linear-gradient(to bottom, white, #27ae60);
-    -fx-text-fill: white;
+    -fx-background-color: linear-gradient(to top, white, #e6d9f2);; /* solid purple */
+    -fx-text-fill: #7a4fa3;
 }
 
 .actionButton:disabled {

@@ -16,7 +16,7 @@ import java.util.*;
  * Service class for managing search templates
  * Handles CRUD operations and persistence of search templates
  */
-public class SearchTemplateService {
+public class SearchProfilesService {
 
     private static final String TEMPLATES_DIR = System.getProperty("user.home") + File.separator + ".l3engine";
     private static final String TEMPLATES_FILE = TEMPLATES_DIR + File.separator + "templates.json";
@@ -24,7 +24,7 @@ public class SearchTemplateService {
     private final ObjectMapper objectMapper;
     private List<SearchTemplate> templates;
 
-    public SearchTemplateService() {
+    public SearchProfilesService() {
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -93,11 +93,11 @@ public class SearchTemplateService {
             "All Logs",
             "Search in all available log files",
             Arrays.asList(
-                "dcs.log",
-                "ams.log",
-                "forwarder.log",
-                "receiver.log",
-                "business_rules.log"
+                "das.log",
+                "MessageForwarder.log",
+                "MessageMHPNRGOV.log",
+                "MessageAPI.log",
+                "MessageTypeB.log"
             )
         );
         allLogs.setActive(true);
@@ -105,20 +105,23 @@ public class SearchTemplateService {
         // API focused template
         SearchTemplate apiLogs = new SearchTemplate(
             "API Logs Only",
-            "Search only in API-related log files",
+            "Search only in API log files",
             Arrays.asList(
-                "forwarder.log",
-                "receiver.log",
-                "business_rules.log"
+                "das.log",
+                "MessageForwarder.log",
+                "MessageAPI.log",
+                "MessageTypeB.log"
             )
         );
 
         // DCS focused template
         SearchTemplate dcsLogs = new SearchTemplate(
-            "DCS Logs Only",
-            "Search only in DCS log files",
+            "PNR Logs Only",
+            "Search only in PNR log files",
             Arrays.asList(
-                "dcs.log"
+                "das.log",
+                "MessageForwarder.log",
+                "MessageMHPNRGOV.log"
             )
         );
 

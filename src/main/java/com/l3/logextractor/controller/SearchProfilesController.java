@@ -1,7 +1,7 @@
 package com.l3.logextractor.controller;
 
 import com.l3.logextractor.model.SearchTemplate;
-import com.l3.logextractor.service.SearchTemplateService;
+import com.l3.logextractor.service.SearchProfilesService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -19,7 +19,7 @@ import java.util.*;
 /**
  * Controller for the Search Template customization dialog
  */
-public class SearchTemplateController implements Initializable {
+public class SearchProfilesController implements Initializable {
 
     @FXML private TableView<SearchTemplate> templatesTable;
     @FXML private TableColumn<SearchTemplate, String> nameColumn;
@@ -41,13 +41,13 @@ public class SearchTemplateController implements Initializable {
     @FXML private Label statusLabel;
     @FXML private Label templateInfoLabel;
 
-    private SearchTemplateService templateManager;
+    private SearchProfilesService templateManager;
     private ObservableList<SearchTemplate> templates;
     private ObservableList<String> logFiles;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        templateManager = new SearchTemplateService();
+        templateManager = new SearchProfilesService();
         templates = FXCollections.observableArrayList();
         logFiles = FXCollections.observableArrayList();
 
@@ -69,7 +69,7 @@ public class SearchTemplateController implements Initializable {
             new SimpleStringProperty(String.valueOf(cellData.getValue().getLogFiles().size())));
 
         activeColumn.setCellValueFactory(cellData ->
-            new SimpleStringProperty(cellData.getValue().isActive() ? "✔ Active" : ""));
+            new SimpleStringProperty(cellData.getValue().isActive() ? "✔ ACTIVE" : ""));
 
         // Style the active column
         activeColumn.setCellFactory(column -> new TableCell<SearchTemplate, String>() {
@@ -395,7 +395,7 @@ public class SearchTemplateController implements Initializable {
     /**
      * Get the template manager instance
      */
-    public SearchTemplateService getTemplateManager() {
+    public SearchProfilesService getTemplateManager() {
         return templateManager;
     }
 }

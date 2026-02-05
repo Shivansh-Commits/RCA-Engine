@@ -156,7 +156,7 @@
                                     <Tooltip text="Configure Azure DevOps connection settings" />
                                 </tooltip>
                             </Button>
-                            <Button fx:id="customiseSearchButton" maxWidth="140.0" minWidth="120.0" onAction="#onCustomiseSearch" styleClass="actionButton" text="🔍 Customise Search">
+                            <Button fx:id="customiseSearchButton" maxWidth="140.0" minWidth="120.0" onAction="#onCustomiseSearch" styleClass="actionButton" text="🔍 Search Profiles">
                                 <tooltip>
                                     <Tooltip text="Manage search templates and log files to search" />
                                 </tooltip>

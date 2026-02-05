@@ -6,7 +6,7 @@ import com.l3.logextractor.model.LogFileEntry;
 import com.l3.logextractor.model.PipelineRunResult;
 import com.l3.logextractor.service.AzurePipelineService;
 import com.l3.logextractor.service.FileDownloadService;
-import com.l3.logextractor.service.SearchTemplateService;
+import com.l3.logextractor.service.SearchProfilesService;
 import com.l3.common.util.VersionUtil;
 import com.l3.common.util.PropertiesUtil;
 import javafx.application.Platform;
@@ -20,6 +20,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
 import javafx.scene.layout.GridPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
@@ -80,7 +81,7 @@ public class LogExtractionController implements Initializable {
     private AzureConfig azureConfig;
     private AzurePipelineService pipelineService;
     private FileDownloadService fileDownloadService;
-    private SearchTemplateService searchTemplateService;
+    private SearchProfilesService searchProfilesService;
     private ObservableList<LogFileEntry> extractedFiles;
     private PipelineRunResult currentRun;
     private ScheduledExecutorService statusChecker;
@@ -203,7 +204,7 @@ public class LogExtractionController implements Initializable {
         pipelineService = new AzurePipelineService(azureConfig);
         fileDownloadService = new FileDownloadService(azureConfig);
         fileDownloadService.setLogExtractionController(this);
-        searchTemplateService = new SearchTemplateService();
+        searchProfilesService = new SearchProfilesService();
         // statusChecker will be created per extraction to avoid reuse issues
     }
 
@@ -220,7 +221,7 @@ public class LogExtractionController implements Initializable {
         }
 
         // Show active search template
-        searchTemplateService.getActiveTemplate().ifPresentOrElse(
+        searchProfilesService.getActiveTemplate().ifPresentOrElse(
             template -> {
                 addLogMessage("Active search template: " + template.getName() +
                     " (" + template.getLogFiles().size() + " log files)");
@@ -259,7 +260,7 @@ public class LogExtractionController implements Initializable {
         }
 
         // Get log files from active search template
-        List<String> logFiles = searchTemplateService.getActiveLogFiles();
+        List<String> logFiles = searchProfilesService.getActiveLogFiles();
         if (logFiles.isEmpty()) {
             showAlert("Configuration Error", "No active search template found. Please configure search templates (Customise Search button).");
             return;
@@ -270,7 +271,7 @@ public class LogExtractionController implements Initializable {
         LogExtractionRequest request = new LogExtractionRequest(flightNumber, incidentDateTime, environment, logFiles);
 
         // Log the active template being used
-        searchTemplateService.getActiveTemplate().ifPresent(template ->
+        searchProfilesService.getActiveTemplate().ifPresent(template ->
             addLogMessage("Using search template: " + template.getName() + " (" + logFiles.size() + " log files)")
         );
 
@@ -487,28 +488,29 @@ public class LogExtractionController implements Initializable {
     private void showSearchTemplateDialog() {
         try {
             FXMLLoader fxmlLoader = new FXMLLoader(
-                getClass().getResource("/com/l3/rcaengine/api/search-template-view.fxml")
+                getClass().getResource("/com/l3/rcaengine/api/search-profiles-view.fxml")
             );
             Scene scene = new Scene(fxmlLoader.load());
 
             Stage dialog = new Stage();
             dialog.setTitle("Search Template Manager");
+            dialog.getIcons().add(new Image(getClass().getResourceAsStream("/images/L3_engine_logo.png")));
             dialog.setScene(scene);
             dialog.setMinWidth(900);
             dialog.setMinHeight(600);
             dialog.setResizable(true);
 
             // Get the controller to access template manager after dialog closes
-            SearchTemplateController controller = fxmlLoader.getController();
+            SearchProfilesController controller = fxmlLoader.getController();
 
             // Show dialog and wait for it to close
             dialog.showAndWait();
 
             // Refresh template manager after dialog closes (in case templates were modified)
-            searchTemplateService = controller.getTemplateManager();
+            searchProfilesService = controller.getTemplateManager();
 
             // Log the active template
-            searchTemplateService.getActiveTemplate().ifPresent(template ->
+            searchProfilesService.getActiveTemplate().ifPresent(template ->
                 addLogMessage("Active search template: " + template.getName() +
                     " (" + template.getLogFiles().size() + " log files)")
             );
