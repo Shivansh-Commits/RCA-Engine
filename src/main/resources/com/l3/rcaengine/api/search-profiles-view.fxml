@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane prefHeight="637.0" prefWidth="900.0" stylesheets="@log-extraction-styles.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logextractor.controller.SearchProfilesController">
+   <top>
+      <VBox spacing="12.0" BorderPane.alignment="CENTER">
+         <children>
+            <!-- Header -->
+            <HBox alignment="CENTER_LEFT" spacing="15.0" styleClass="content-panel">
+               <children>
+                  <Label styleClass="header-label" text="Search Template Manager" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="16.0" />
+                     </font>
+                  </Label>
+                  <Region HBox.hgrow="ALWAYS" />
+                  <Label style="-fx-text-fill: rgba(255, 255, 255, 0.7); -fx-font-size: 12px;" text="Create, modify, and manage search templates" />
+               </children>
+               <padding>
+                  <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />
+               </padding>
+            </HBox>
+
+            <!-- Description -->
+            <VBox spacing="5.0" styleClass="input-section">
+               <children>
+                  <Label style="-fx-font-size: 12px;" text="Search templates define which log files will be searched during extraction." />
+                  <Label style="-fx-font-size: 12px; -fx-text-fill: #666;" text="Create multiple templates for different scenarios and activate the one you need." />
+               </children>
+               <padding>
+                  <Insets left="16.0" right="16.0" />
+               </padding>
+            </VBox>
+         </children>
+         <padding>
+            <Insets bottom="8.0" />
+         </padding>
+      </VBox>
+   </top>
+
+   <center>
+      <VBox spacing="12.0" BorderPane.alignment="CENTER">
+         <children>
+            <!-- Templates Table -->
+            <VBox spacing="8.0" VBox.vgrow="ALWAYS">
+               <children>
+                  <Label styleClass="section-label" text="Available Templates">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Label>
+                  <TableView fx:id="templatesTable" prefHeight="210.0" prefWidth="868.0" VBox.vgrow="ALWAYS">
+                     <columns>
+                        <TableColumn fx:id="nameColumn" prefWidth="180.0" text="Template Name" />
+                        <TableColumn fx:id="descriptionColumn" prefWidth="300.0" text="Description" />
+                        <TableColumn fx:id="logFilesCountColumn" prefWidth="100.0" text="Log Files" />
+                        <TableColumn fx:id="activeColumn" prefWidth="100.0" text="Status" />
+                     </columns>
+                  </TableView>
+
+                  <!-- Template Actions -->
+                  <HBox alignment="CENTER_LEFT" spacing="10.0">
+                     <children>
+                        <Button fx:id="createButton" onAction="#onCreateTemplate" styleClass="primaryButton" text="Create">
+                           <tooltip>
+                              <Tooltip text="Create a new search template" />
+                           </tooltip>
+                        </Button>
+                        <Button fx:id="editButton" disable="true" onAction="#onEditTemplate" styleClass="secondaryButton" text="Edit">
+                           <tooltip>
+                              <Tooltip text="Edit the selected template" />
+                           </tooltip>
+                        </Button>
+                        <Button fx:id="duplicateButton" disable="true" onAction="#onDuplicateTemplate" styleClass="secondaryButton" text="Duplicate">
+                           <tooltip>
+                              <Tooltip text="Create a copy of the selected template" />
+                           </tooltip>
+                        </Button>
+                        <Button fx:id="deleteButton" disable="true" onAction="#onDeleteTemplate" styleClass="deleteButton" text="Delete">
+                           <tooltip>
+                              <Tooltip text="Delete the selected template" />
+                           </tooltip>
+                        </Button>
+                        <Separator orientation="VERTICAL" />
+                        <Button fx:id="activateButton" disable="true" onAction="#onActivateTemplate" styleClass="actionButton" text="Activate">
+                           <tooltip>
+                              <Tooltip text="Set as active template for log extraction" />
+                           </tooltip>
+                        </Button>
+                     </children>
+                  </HBox>
+               </children>
+            </VBox>
+
+            <Separator />
+
+            <!-- Log Files Section -->
+            <VBox spacing="8.0" VBox.vgrow="ALWAYS">
+               <children>
+                  <HBox alignment="CENTER_LEFT" spacing="10.0">
+                     <children>
+                        <Label styleClass="section-label" text="Log Files in Selected Template">
+                           <font>
+                              <Font name="System Bold" size="12.0" />
+                           </font>
+                        </Label>
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Label fx:id="templateInfoLabel" style="-fx-text-fill: #666; -fx-font-size: 11px;" />
+                     </children>
+                  </HBox>
+                  <ListView fx:id="logFilesListView" prefHeight="182.0" prefWidth="868.0" VBox.vgrow="ALWAYS" />
+
+                  <!-- Log File Actions -->
+                  <HBox alignment="CENTER_LEFT" spacing="10.0">
+                     <children>
+                        <Button fx:id="addLogFileButton" onAction="#onAddLogFile" styleClass="secondaryButton" text="Add Log File">
+                           <tooltip>
+                              <Tooltip text="Add a log file to the selected template" />
+                           </tooltip>
+                        </Button>
+                        <Button fx:id="removeLogFileButton" disable="true" onAction="#onRemoveLogFile" styleClass="secondaryButton" text="Remove Selected">
+                           <tooltip>
+                              <Tooltip text="Remove the selected log file from template" />
+                           </tooltip>
+                        </Button>
+                     </children>
+                  </HBox>
+               </children>
+            </VBox>
+         </children>
+         <padding>
+            <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />
+         </padding>
+      </VBox>
+   </center>
+
+   <bottom>
+      <VBox spacing="8.0" BorderPane.alignment="CENTER">
+         <children>
+            <Separator />
+            <HBox alignment="CENTER_LEFT" spacing="12.0">
+               <children>
+                  <Label fx:id="statusLabel" style="-fx-text-fill: #27ae60; -fx-font-size: 12px;" />
+                  <Region HBox.hgrow="ALWAYS" />
+                  <Button fx:id="closeButton" minWidth="100.0" onAction="#onClose" styleClass="primaryButton" text="Done" />
+               </children>
+               <padding>
+                  <Insets bottom="12.0" left="16.0" right="16.0" top="12.0" />
+               </padding>
+            </HBox>
+         </children>
+      </VBox>
+   </bottom>
+</BorderPane>
