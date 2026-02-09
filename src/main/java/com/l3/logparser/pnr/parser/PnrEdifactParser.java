@@ -4,6 +4,7 @@ import com.l3.logparser.pnr.model.*;
 import com.l3.logparser.enums.MessageType;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -20,6 +21,48 @@ public class PnrEdifactParser {
     private static final Pattern TRACE_ID_PATTERN = Pattern.compile(
         "\\[trace\\.id:([^\\]]+)\\]"
     );
+
+    // Progress callback for real-time logging
+    private Consumer<String> progressCallback;
+
+    // Debug mode flag for detailed logging
+    private boolean debugMode = false;
+
+    // Track if we've logged separator details for current batch (to avoid spam)
+    private boolean separatorDetailsLogged = false;
+
+    /**
+     * Set progress callback for real-time logging updates
+     */
+    public void setProgressCallback(Consumer<String> callback) {
+        this.progressCallback = callback;
+        // Also set the callback for PnrSeparators detailed logging
+        PnrSeparators.setLogCallback(callback);
+    }
+
+    /**
+     * Enable or disable debug mode for detailed logging
+     */
+    public void setDebugMode(boolean debugMode) {
+        this.debugMode = debugMode;
+    }
+
+    /**
+     * Reset separator logging flag (call this when starting to process a new file)
+     */
+    public void resetSeparatorLogging() {
+        this.separatorDetailsLogged = false;
+    }
+
+    /**
+     * Log progress message
+     */
+    private void logProgress(String message) {
+        if (progressCallback != null) {
+            progressCallback.accept(message);
+        }
+        // Removed console logging - logs only go to UI via callback
+    }
 
     /**
      * Parse PNR messages from log content
@@ -132,7 +175,17 @@ public class PnrEdifactParser {
         PnrMessage message = new PnrMessage();
         
         // Detect separators from UNA or UNB segment
-        PnrSeparators separators = detectSeparators(edifactContent);
+        // In debug mode, log separator detection for the first message in each file
+        boolean shouldLogSeparators = debugMode && !separatorDetailsLogged;
+        PnrSeparators separators = detectSeparators(edifactContent, shouldLogSeparators);
+
+        // Mark that we've logged separators for this file (to avoid spam)
+        if (shouldLogSeparators && separators != null) {
+            separatorDetailsLogged = true;
+            // Log the detected separators
+            logProgress("    Separators detected: " + separators.toString());
+        }
+
         message.setSeparators(separators);
         
         // Parse UNH segment for message details
@@ -149,8 +202,9 @@ public class PnrEdifactParser {
 
     /**
      * Detect EDIFACT separators from UNA or UNB segment
+     * @param enableLogging If true, log the separator detection details (should only be enabled once per file)
      */
-    private PnrSeparators detectSeparators(String edifactContent) {
+    private PnrSeparators detectSeparators(String edifactContent, boolean enableLogging) {
         // Try to find UNA segment first
         int unaIndex = edifactContent.indexOf("UNA");
         if (unaIndex >= 0) {
@@ -159,14 +213,17 @@ public class PnrEdifactParser {
             if (unaEnd == -1) unaEnd = Math.min(unaIndex + 15, edifactContent.length());
             
             String unaSegment = edifactContent.substring(unaIndex, unaEnd).trim();
-            System.out.println("[INFO] Found UNA segment: " + unaSegment);
+            if (enableLogging) {
+                logProgress("  Found UNA segment, extracting separators");
+            }
             PnrSeparators separators = PnrSeparators.fromUnaSegment(unaSegment);
-            System.out.println("[INFO] Using separators from UNA: " + separators);
             return separators;
         }
         
         // UNA not found - fallback to UNB segment
-        System.out.println("[INFO] UNA segment not found, extracting separators from UNB segment");
+        if (enableLogging) {
+            logProgress("  UNA segment not found, extracting separators from UNB segment");
+        }
         int unbIndex = edifactContent.indexOf("UNB");
         if (unbIndex >= 0) {
             // Find the end of UNB segment - look for segment terminator
@@ -198,15 +255,25 @@ public class PnrEdifactParser {
             }
 
             String unbSegment = edifactContent.substring(unbIndex, unbEnd).trim();
-            System.out.println("[INFO] Found UNB segment: " + unbSegment);
+            if (enableLogging) {
+                logProgress("  Successfully extracted separators from UNB segment");
+            }
             PnrSeparators separators = PnrSeparators.fromUnbSegment(unbSegment);
-            System.out.println("[INFO] Using separators from UNB: " + separators);
             return separators;
         }
         
         // Neither UNA nor UNB found - return default separators
-        System.out.println("[WARN] Neither UNA nor UNB segment found, using default separators");
+        if (enableLogging) {
+            logProgress("  WARN: Neither UNA nor UNB segment found, using default separators");
+        }
         return PnrSeparators.DEFAULT;
+    }
+
+    /**
+     * Detect separators with logging enabled (for backward compatibility)
+     */
+    private PnrSeparators detectSeparators(String edifactContent) {
+        return detectSeparators(edifactContent, false); // Default to no logging per message
     }
 
     /**
@@ -598,4 +665,3 @@ public class PnrEdifactParser {
         return flightNumber;
     }
 }
-

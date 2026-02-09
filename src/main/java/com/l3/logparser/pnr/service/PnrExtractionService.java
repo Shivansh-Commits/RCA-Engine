@@ -7,7 +7,7 @@ import com.l3.logparser.enums.MessageType;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -25,8 +25,40 @@ public class PnrExtractionService {
             "MessageForwarder.log*"
     );
 
+    // Progress callback for real-time logging
+    private Consumer<String> progressCallback;
+
+    // Debug mode flag
+    private boolean debugMode = false;
+
     public PnrExtractionService() {
         this.parser = new PnrEdifactParser();
+    }
+
+    /**
+     * Set progress callback for real-time logging updates
+     */
+    public void setProgressCallback(Consumer<String> callback) {
+        this.progressCallback = callback;
+        this.parser.setProgressCallback(callback);
+    }
+
+    /**
+     * Enable or disable debug mode for detailed logging
+     */
+    public void setDebugMode(boolean debugMode) {
+        this.debugMode = debugMode;
+        this.parser.setDebugMode(debugMode);
+    }
+
+    /**
+     * Log progress message
+     */
+    private void logProgress(String message) {
+        if (progressCallback != null) {
+            progressCallback.accept(message);
+        }
+        // Removed console logging - logs only go to UI via callback
     }
 
     /**
@@ -48,64 +80,149 @@ public class PnrExtractionService {
         result.setFlightNumber(flightNumber);
         result.setLogDirectoryPath(logDirectoryPath);
 
+        logProgress("=".repeat(80));
+        logProgress("Starting PNR message extraction");
+        logProgress("Target Flight: " + flightNumber);
+        logProgress("Log Directory: " + logDirectoryPath);
+        if (departureDate != null && !departureDate.isEmpty()) {
+            logProgress("Departure Date Filter: " + departureDate);
+        }
+        if (departureAirport != null && !departureAirport.isEmpty()) {
+            logProgress("Departure Airport Filter: " + departureAirport);
+        }
+        if (arrivalAirport != null && !arrivalAirport.isEmpty()) {
+            logProgress("Arrival Airport Filter: " + arrivalAirport);
+        }
+        logProgress("=".repeat(80));
+
         try {
             Path logDir = Paths.get(logDirectoryPath);
             if (!Files.exists(logDir) || !Files.isDirectory(logDir)) {
-                result.addError("Log directory does not exist: " + logDirectoryPath);
+                String error = "Log directory does not exist: " + logDirectoryPath;
+                result.addError(error);
+                logProgress("ERROR: " + error);
                 return result;
             }
 
+            logProgress("");
+            logProgress("Phase 1: Discovering log files...");
+
             // Find and process PNR log files (both input and output)
             List<PnrMessage> allMessages = new ArrayList<>();
+            int totalFilesProcessed = 0;
 
             // Process input log files (MessageMHPNRGOV.log*)
+            logProgress("Searching for INPUT log files (patterns: " + PNR_INPUT_LOG_PATTERNS + ")");
             for (String pattern : PNR_INPUT_LOG_PATTERNS) {
                 List<Path> logFiles = findLogFiles(logDir, pattern);
+                logProgress("  Found " + logFiles.size() + " file(s) matching pattern: " + pattern);
+
                 for (Path logFile : logFiles) {
+                    totalFilesProcessed++;
+                    logProgress("");
+                    logProgress("Processing INPUT file [" + totalFilesProcessed + "]: " + logFile.getFileName());
+                    logProgress("  File size: " + formatFileSize(Files.size(logFile)));
+
                     List<PnrMessage> fileMessages = processLogFile(logFile, flightNumber, MessageType.INPUT);
                     allMessages.addAll(fileMessages);
                     result.addProcessedFile(logFile.toString() + " (INPUT)");
+
+                    logProgress("  Extracted " + fileMessages.size() + " message(s) from this file");
                 }
             }
 
             // Process output log files (MessageForwarder.log*)
+            logProgress("");
+            logProgress("Searching for OUTPUT log files (patterns: " + PNR_OUTPUT_LOG_PATTERNS + ")");
             for (String pattern : PNR_OUTPUT_LOG_PATTERNS) {
                 List<Path> logFiles = findLogFiles(logDir, pattern);
+                logProgress("  Found " + logFiles.size() + " file(s) matching pattern: " + pattern);
+
                 for (Path logFile : logFiles) {
+                    totalFilesProcessed++;
+                    logProgress("");
+                    logProgress("Processing OUTPUT file [" + totalFilesProcessed + "]: " + logFile.getFileName());
+                    logProgress("  File size: " + formatFileSize(Files.size(logFile)));
+
                     List<PnrMessage> fileMessages = processLogFile(logFile, flightNumber, MessageType.OUTPUT);
                     allMessages.addAll(fileMessages);
                     result.addProcessedFile(logFile.toString() + " (OUTPUT)");
+
+                    logProgress("  Extracted " + fileMessages.size() + " message(s) from this file");
                 }
             }
 
+            logProgress("");
+            logProgress("=".repeat(80));
+            logProgress("Phase 2: Processing extracted messages");
+            logProgress("Total files processed: " + totalFilesProcessed);
+            logProgress("Total messages found: " + allMessages.size());
+
             // Remove duplicate messages (same message ID from multiple files)
+            logProgress("");
+            logProgress("Removing duplicate messages...");
             List<PnrMessage> deduplicatedMessages = removeDuplicateMessages(allMessages);
+            int duplicatesRemoved = allMessages.size() - deduplicatedMessages.size();
+            if (duplicatesRemoved > 0) {
+                logProgress("  Removed " + duplicatesRemoved + " duplicate message(s)");
+            } else {
+                logProgress("  No duplicates found");
+            }
+            logProgress("  Unique messages: " + deduplicatedMessages.size());
 
             // Group multipart messages
+            logProgress("");
+            logProgress("Grouping multipart messages...");
             List<PnrMultipartGroup> groups = groupMultipartMessages(deduplicatedMessages);
+            logProgress("  Created " + groups.size() + " message group(s)");
 
             // Analyze completeness (only for groups matching target flight criteria)
+            logProgress("");
+            logProgress("Analyzing message completeness...");
             analyzeCompleteness(groups, result, flightNumber, departureDate, departureAirport, arrivalAirport);
+            logProgress("  Complete groups: " + result.getCompleteGroups());
+            logProgress("  Incomplete groups: " + result.getIncompleteGroups());
 
             // Filter messages based on additional criteria
+            logProgress("");
+            logProgress("Applying flight criteria filters...");
             List<PnrMessage> filteredMessages = filterMessages(deduplicatedMessages,
                     flightNumber, departureDate, departureAirport, arrivalAirport);
+            logProgress("  Messages matching criteria: " + filteredMessages.size());
 
             result.setExtractedMessages(filteredMessages);
             result.setMultipartGroups(groups);
             result.setSuccess(true);
 
+            logProgress("");
+            logProgress("=".repeat(80));
             if (filteredMessages.isEmpty()) {
+                logProgress("WARNING: No PNR messages found matching the specified criteria");
                 result.addWarning("No PNR messages found matching the specified criteria");
+            } else {
+                logProgress("SUCCESS: Extraction completed successfully");
+                logProgress("Final result: " + filteredMessages.size() + " message(s) ready for analysis");
             }
+            logProgress("=".repeat(80));
 
         } catch (Exception e) {
-            result.addError("Error processing PNR log directory: " + e.getMessage());
-            System.err.println("ERROR in extractPnrMessages: " + e.getMessage());
+            String error = "Error processing PNR log directory: " + e.getMessage();
+            result.addError(error);
+            logProgress("ERROR: " + error);
             e.printStackTrace();
         }
 
         return result;
+    }
+
+    /**
+     * Format file size in human-readable format
+     */
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format("%.2f KB", bytes / 1024.0);
+        if (bytes < 1024 * 1024 * 1024) return String.format("%.2f MB", bytes / (1024.0 * 1024.0));
+        return String.format("%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
     }
 
     /**
@@ -134,20 +251,34 @@ public class PnrExtractionService {
         try {
             long fileSize = Files.size(logFile);
 
+            // Reset separator logging for this new file (enables detailed logging for first message)
+            if (debugMode) {
+                parser.resetSeparatorLogging();
+            }
+
             if (fileSize > 50 * 1024 * 1024) { // If file is larger than 50MB
+                logProgress("  Large file detected (>" + formatFileSize(50 * 1024 * 1024) + "), processing in chunks...");
                 messages = processLargeLogFile(logFile, flightNumber, messageType);
             } else {
+                logProgress("  Reading file content...");
                 String content = Files.readString(logFile);
+
+                if (debugMode) {
+                    logProgress("  Parsing PNR messages with separator detection...");
+                } else {
+                    logProgress("  Parsing PNR messages...");
+                }
+
                 messages = parser.parseLogContent(content, flightNumber, messageType);
             }
 
-            System.out.println("Processed " + logFile.getFileName() + 
-                             " - Found " + messages.size() + " PNR messages");
-
         } catch (IOException e) {
-            System.err.println("Error reading PNR log file " + logFile + ": " + e.getMessage());
+            String error = "Error reading PNR log file " + logFile + ": " + e.getMessage();
+            logProgress("  ERROR: " + error);
+            System.err.println(error);
         } catch (Exception e) {
-            System.err.println("Unexpected error processing PNR file " + logFile + ": " + e.getMessage());
+            String error = "Unexpected error processing PNR file " + logFile + ": " + e.getMessage();
+            logProgress("  ERROR: " + error);
             e.printStackTrace();
         }
 
@@ -161,10 +292,19 @@ public class PnrExtractionService {
         List<PnrMessage> messages = new ArrayList<>();
         StringBuilder currentEntry = new StringBuilder();
         boolean inPnrMessage = false;
+        int linesProcessed = 0;
+        int entriesProcessed = 0;
 
         try (BufferedReader reader = Files.newBufferedReader(logFile)) {
             String line;
             while ((line = reader.readLine()) != null) {
+                linesProcessed++;
+
+                // Progress update every 10000 lines
+                if (linesProcessed % 10000 == 0) {
+                    logProgress("    Processed " + linesProcessed + " lines, found " + messages.size() + " messages so far...");
+                }
+
                 // Check if this line starts a new log entry
                 if (isNewLogEntry(line)) {
                     // Process the previous entry if it was a PNR message
@@ -172,6 +312,7 @@ public class PnrExtractionService {
                         List<PnrMessage> entryMessages = parser.parseLogContent(
                             currentEntry.toString(), flightNumber, messageType);
                         messages.addAll(entryMessages);
+                        entriesProcessed++;
                     }
 
                     // Start new entry
@@ -191,10 +332,15 @@ public class PnrExtractionService {
                 List<PnrMessage> entryMessages = parser.parseLogContent(
                     currentEntry.toString(), flightNumber, messageType);
                 messages.addAll(entryMessages);
+                entriesProcessed++;
             }
 
+            logProgress("    Completed: " + linesProcessed + " lines processed, " + entriesProcessed + " log entries analyzed");
+
         } catch (IOException e) {
-            System.err.println("Error reading large PNR log file " + logFile + ": " + e.getMessage());
+            String error = "Error reading large PNR log file " + logFile + ": " + e.getMessage();
+            logProgress("  ERROR: " + error);
+            System.err.println(error);
         }
 
         return messages;
@@ -342,7 +488,7 @@ public class PnrExtractionService {
                                            String arrivalAirport) {
 
         return messages.stream()
-                .filter(message -> matchesFlightCriteria(message, flightNumber, 
+                .filter(message -> matchesFlightCriteria(message, flightNumber,
                     departureDate, departureAirport, arrivalAirport))
                 .collect(Collectors.toList());
     }

@@ -85,6 +85,12 @@ public class MessageParserController implements Initializable {
     private boolean debugMode = false;
     private boolean multiNodeMode = true;
 
+    // Log message batching to prevent UI thread overload
+    private final List<String> pendingLogMessages = new ArrayList<>();
+    private long lastLogUpdateTime = 0;
+    private static final long LOG_UPDATE_INTERVAL_MS = 100; // Update UI every 100ms max
+    private final Object logLock = new Object();
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         messageParserService = new MessageParserService();
@@ -340,8 +346,11 @@ public class MessageParserController implements Initializable {
 
         // Convert date to appropriate format based on data type
         String formattedDate = formatDateForDataType(selectedDate, selectedDataType);
-        addLogMessage("Selected date: " + selectedDate + " formatted as: " + formattedDate + " for " + selectedDataType.getDisplayName());
-
+        addLogMessage("Flight Number:- "+flightNumber);
+        addLogMessage("Selected date:- " + selectedDate + " formatted as: " + formattedDate + " for " + selectedDataType.getDisplayName());
+        addLogMessage("Departure airport:- "+departureAirport);
+        addLogMessage("Arrival airport:- "+arrivalAirport);
+        addLogMessage("Data Type:- "+selectedDataType.getDisplayName());
         // Clear previous results
         clearResults();
 
@@ -351,9 +360,28 @@ public class MessageParserController implements Initializable {
             @Override
             protected MessageParserService.ExtractionResult call() throws Exception {
                 if (selectedDataType == DataType.PNR) {
+                    // Set progress callback for PNR extraction with debug mode support and throttling
+                    pnrExtractionService.setProgressCallback(message -> {
+                        if (debugMode) {
+                            // In debug mode, show all detailed logs (with throttling)
+                            addLogMessageThrottled(message);
+                        } else {
+                            // In normal mode, filter and show only essential logs
+                            if (shouldShowInNormalMode(message)) {
+                                addLogMessageThrottled(message);
+                            }
+                        }
+                    });
+
+                    // Enable debug mode in the service to get detailed separator detection logs
+                    pnrExtractionService.setDebugMode(debugMode);
+
                     // Use PNR service for proper filtering and analysis
                     PnrExtractionService.PnrExtractionResult pnrResult = pnrExtractionService.extractPnrMessages(
                         finalLogDirectory, flightNumber, formattedDate, departureAirport, arrivalAirport);
+
+                    // Flush any remaining batched log messages before completing
+                    flushPendingLogMessages();
 
                     // Convert PNR result to generic result format
                     MessageParserService.ExtractionResult genericResult =
@@ -750,9 +778,114 @@ public class MessageParserController implements Initializable {
 
     private void addLogMessage(String message) {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
-        logArea.appendText(String.format("[%s] %s%n", timestamp, message));
+        String formattedMessage = String.format("[%s] %s%n", timestamp, message);
+
+        // Batch log messages and update UI at intervals to prevent overload
+        synchronized (logLock) {
+            pendingLogMessages.add(formattedMessage);
+
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastLogUpdateTime > LOG_UPDATE_INTERVAL_MS) {
+                // Update UI with batched messages
+                String allMessages = String.join("", pendingLogMessages);
+                Platform.runLater(() -> logArea.appendText(allMessages));
+
+                // Clear batched messages
+                pendingLogMessages.clear();
+                lastLogUpdateTime = currentTime;
+            }
+        }
     }
 
+    /**
+     * Add log message with throttling (no timestamp added, for use with callbacks)
+     * Used by progress callbacks that may generate many messages quickly
+     */
+    private void addLogMessageThrottled(String message) {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+        String formattedMessage = String.format("[%s] %s%n", timestamp, message);
+
+        // Batch log messages and update UI at intervals to prevent overload
+        synchronized (logLock) {
+            pendingLogMessages.add(formattedMessage);
+
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastLogUpdateTime > LOG_UPDATE_INTERVAL_MS) {
+                // Update UI with batched messages in a single Platform.runLater call
+                String allMessages = String.join("", pendingLogMessages);
+                Platform.runLater(() -> logArea.appendText(allMessages));
+
+                // Clear batched messages
+                pendingLogMessages.clear();
+                lastLogUpdateTime = currentTime;
+            }
+        }
+    }
+
+    /**
+     * Flush any pending batched log messages to the UI
+     * Should be called at the end of processing to ensure all messages are displayed
+     */
+    private void flushPendingLogMessages() {
+        synchronized (logLock) {
+            if (!pendingLogMessages.isEmpty()) {
+                String allMessages = String.join("", pendingLogMessages);
+                Platform.runLater(() -> logArea.appendText(allMessages));
+                pendingLogMessages.clear();
+                lastLogUpdateTime = System.currentTimeMillis();
+            }
+        }
+    }
+
+    /**
+     * Determines if a log message should be shown in normal (non-debug) mode
+     * In normal mode, only show essential progress information
+     */
+    private boolean shouldShowInNormalMode(String message) {
+        // Show file processing messages
+        if (message.contains("Processing INPUT file") || message.contains("Processing OUTPUT file")) {
+            return true;
+        }
+
+        // Show extracted message counts
+        if (message.contains("Extracted") && message.contains("message(s) from this file")) {
+            return true;
+        }
+
+        // Show phase headers
+        if (message.contains("Starting PNR message extraction") ||
+            message.contains("Phase 1:") ||
+            message.contains("Phase 2:")) {
+            return true;
+        }
+
+        // Show totals and summary
+        if (message.contains("Total files processed:") ||
+            message.contains("Total messages found:") ||
+            message.contains("Messages matching criteria:") ||
+            message.contains("SUCCESS:") ||
+            message.contains("Final result:")) {
+            return true;
+        }
+
+        // Show errors and warnings
+        if (message.contains("ERROR:") || message.contains("WARNING:")) {
+            return true;
+        }
+
+        // Hide detailed logs in normal mode:
+        // - "Found X file(s) matching pattern"
+        // - "File size:"
+        // - "Reading file content..."
+        // - "Parsing PNR messages..."
+        // - "Removing duplicate messages..."
+        // - "Grouping multipart messages..."
+        // - "Analyzing message completeness..."
+        // - "Separator detection" logs
+        // - Large file progress updates
+
+        return false;
+    }
 
     private Stage getStage() {
         return (Stage) logDirectoryField.getScene().getWindow();
