@@ -936,7 +936,7 @@ public class MessageParserController implements Initializable {
                 this.partIndicator = "F(Output)";
             } else {
                 // Input messages: show actual part indicator (C for continuation, F for final)
-                String baseIndicator = message.getPartIndicator() != null ? message.getPartIndicator() : "C";
+                String baseIndicator = message.getPartIndicator() != null ? message.getPartIndicator() : "F";
                 this.partIndicator = baseIndicator;
             }
         }
