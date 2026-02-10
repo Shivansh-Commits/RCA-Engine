@@ -393,7 +393,7 @@ public class PnrExtractionService {
 
     /**
      * Create a unique key for message deduplication
-     * Include flight details to distinguish messages for same flight but different legs/destinations
+     * Include flight details to distinguish messages for same flight but different legs/destinations/dates
      */
     private String createMessageKey(PnrMessage message) {
         StringBuilder key = new StringBuilder();
@@ -409,9 +409,13 @@ public class PnrExtractionService {
             key.append("_UNKNOWN");
         }
 
-        // Include flight details to distinguish different legs/destinations
+        // Include flight details to distinguish different legs/destinations/dates
         PnrFlightDetails details = message.getFlightDetails();
         if (details != null) {
+            // Include departure date to distinguish messages for same flight on different dates
+            if (details.getDepartureDate() != null) {
+                key.append("_").append(details.getDepartureDate());
+            }
             // Include departure and arrival airports to distinguish different flight legs
             if (details.getDepartureAirport() != null) {
                 key.append("_").append(details.getDepartureAirport());
