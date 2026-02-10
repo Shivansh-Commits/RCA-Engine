@@ -80,7 +80,7 @@ public class PnrSeparators {
      * Create separators from UNB segment when UNA is not present
      * @param unbSegment UNB segment like "UNB+IATA:1+EK+NR+250829:1357+00000000000154++PNRGOV'"
      */
-    public static PnrSeparators fromUnbSegment(String unbSegment) {
+   /* public static PnrSeparators fromUnbSegment(String unbSegment) {
         PnrSeparators separators = new PnrSeparators();
         separators.isUnaPresent = false;
 
@@ -90,12 +90,12 @@ public class PnrSeparators {
         }
 
         try {
-            logDetail("    UNA segment not found, extracting separators from UNB segment");
+            logDetail("    UNA segment not found, so using default separators");
             logDetail("    Found UNB segment: " + unbSegment);
 
             // First character after UNB is the element separator
             separators.elementSeparator = unbSegment.charAt(3);
-            logDetail("    Detected element separator from UNB: '" + separators.elementSeparator + "'");
+
 
             // Look for sub-element separator in the first element after UNB
             // First element is between position 4 and the next element separator
@@ -114,7 +114,7 @@ public class PnrSeparators {
                     }
                 }
             }
-            
+
             // Find terminator by looking for the segment terminator
             // It's typically the last non-whitespace character or ' character
             String trimmed = unbSegment.trim();
@@ -144,9 +144,9 @@ public class PnrSeparators {
         } catch (Exception e) {
             // Silent error handling - return default separators
         }
-        
+
         return separators;
-    }
+    }*/
 
     // Getters and Setters
     public char getSubElementSeparator() { return subElementSeparator; }

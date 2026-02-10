@@ -220,7 +220,7 @@ public class PnrEdifactParser {
             return separators;
         }
         
-        // UNA not found - fallback to UNB segment
+       /* // UNA not found - fallback to UNB segment
         if (enableLogging) {
             logProgress("  UNA segment not found, extracting separators from UNB segment");
         }
@@ -260,11 +260,12 @@ public class PnrEdifactParser {
             }
             PnrSeparators separators = PnrSeparators.fromUnbSegment(unbSegment);
             return separators;
-        }
+        }*/
+
         
         // Neither UNA nor UNB found - return default separators
         if (enableLogging) {
-            logProgress("  WARN: Neither UNA nor UNB segment found, using default separators");
+            logProgress("  WARN: No UNA segment found, using default separators");
         }
         return PnrSeparators.DEFAULT;
     }
