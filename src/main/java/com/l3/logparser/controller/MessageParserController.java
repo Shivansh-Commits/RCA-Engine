@@ -397,6 +397,9 @@ public class MessageParserController implements Initializable {
                     List<EdifactMessage> edifactMessages = convertPnrToEdifactMessages(pnrResult.getExtractedMessages());
                     genericResult.setExtractedMessages(edifactMessages);
 
+                    // Copy processed files list
+                    pnrResult.getProcessedFiles().forEach(genericResult::addProcessedFile);
+
                     // Copy warnings and errors
                     genericResult.getWarnings().addAll(pnrResult.getWarnings());
                     genericResult.getErrors().addAll(pnrResult.getErrors());
