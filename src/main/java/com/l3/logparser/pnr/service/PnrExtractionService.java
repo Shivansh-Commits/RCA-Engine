@@ -359,13 +359,31 @@ public class PnrExtractionService {
 
     /**
      * Remove duplicate messages based on message ID and content
+     * When duplicates are found, prefer the larger/more complete message
      */
     private List<PnrMessage> removeDuplicateMessages(List<PnrMessage> messages) {
         Map<String, PnrMessage> uniqueMessages = new LinkedHashMap<>();
 
         for (PnrMessage message : messages) {
             String key = createMessageKey(message);
-            if (!uniqueMessages.containsKey(key)) {
+
+            // If this key already exists, keep the larger/more complete message
+            if (uniqueMessages.containsKey(key)) {
+                PnrMessage existing = uniqueMessages.get(key);
+
+                // Compare by raw content length - prefer longer messages (more complete data)
+                int existingLength = existing.getRawContent() != null ? existing.getRawContent().length() : 0;
+                int newLength = message.getRawContent() != null ? message.getRawContent().length() : 0;
+
+                if (newLength > existingLength) {
+                    // New message is larger/more complete, replace the existing one
+                    uniqueMessages.put(key, message);
+                    if (debugMode) {
+                        logProgress("    [DEBUG] Replacing duplicate with larger message: " + key +
+                                  " (old: " + existingLength + " bytes, new: " + newLength + " bytes)");
+                    }
+                }
+            } else {
                 uniqueMessages.put(key, message);
             }
         }
@@ -375,12 +393,35 @@ public class PnrExtractionService {
 
     /**
      * Create a unique key for message deduplication
+     * Include flight details to distinguish messages for same flight but different legs/destinations
      */
     private String createMessageKey(PnrMessage message) {
-        return message.getMessageReferenceNumber() + "_" + 
-               message.getPartNumber() + "_" + 
-               message.getFlightNumber() + "_" +
-               (message.getDirection() != null ? message.getDirection().toString() : "UNKNOWN");
+        StringBuilder key = new StringBuilder();
+
+        key.append(message.getMessageReferenceNumber()).append("_");
+        key.append(message.getPartNumber()).append("_");
+        key.append(message.getFlightNumber());
+
+        // Include direction
+        if (message.getDirection() != null) {
+            key.append("_").append(message.getDirection().toString());
+        } else {
+            key.append("_UNKNOWN");
+        }
+
+        // Include flight details to distinguish different legs/destinations
+        PnrFlightDetails details = message.getFlightDetails();
+        if (details != null) {
+            // Include departure and arrival airports to distinguish different flight legs
+            if (details.getDepartureAirport() != null) {
+                key.append("_").append(details.getDepartureAirport());
+            }
+            if (details.getArrivalAirport() != null) {
+                key.append("_").append(details.getArrivalAirport());
+            }
+        }
+
+        return key.toString();
     }
 
     /**
@@ -534,12 +575,32 @@ public class PnrExtractionService {
                                         String departureAirport,
                                         String arrivalAirport) {
 
+        // Debug logging if enabled
+        if (debugMode) {
+            logProgress("    [DEBUG] Checking message criteria:");
+            logProgress("      Message flight number: " + message.getFlightNumber());
+            PnrFlightDetails details = message.getFlightDetails();
+            if (details != null) {
+                logProgress("      Flight details: " + details.getFullFlightNumber());
+                logProgress("      Departure date: " + details.getDepartureDate());
+                logProgress("      Departure airport: " + details.getDepartureAirport());
+                logProgress("      Arrival airport: " + details.getArrivalAirport());
+            } else {
+                logProgress("      Flight details: NULL");
+            }
+            logProgress("      Target flight: " + flightNumber);
+            logProgress("      Target departure date: " + departureDate);
+            logProgress("      Target departure airport: " + departureAirport);
+            logProgress("      Target arrival airport: " + arrivalAirport);
+        }
+
         // Check flight number if specified
         if (flightNumber != null && !flightNumber.trim().isEmpty()) {
             String targetFlight = flightNumber.trim().toUpperCase();
             String messageFlight = message.getFlightNumber();
             
             if (messageFlight == null) {
+                if (debugMode) logProgress("      REJECTED: Message flight number is NULL");
                 return false;
             }
             
@@ -561,8 +622,10 @@ public class PnrExtractionService {
             }
             
             if (!flightMatches) {
-                return false; // Flight number doesn't match, so this message doesn't match
+                if (debugMode) logProgress("      REJECTED: Flight number doesn't match (message: " + messageFlight + ", target: " + targetFlight + ")");
+                return false;
             }
+            if (debugMode) logProgress("      Flight number MATCHES");
         }
 
         // Get flight details for additional criteria checking
@@ -571,40 +634,50 @@ public class PnrExtractionService {
         // Check departure date if specified
         if (departureDate != null && !departureDate.trim().isEmpty()) {
             if (details == null) {
-                return false; // No flight details available, can't match departure date
+                if (debugMode) logProgress("      REJECTED: No flight details for departure date check");
+                return false;
             }
             String targetDate = departureDate.trim();
             String messageDate = details.getDepartureDate();
             if (messageDate == null || !messageDate.equals(targetDate)) {
-                return false; // Departure date doesn't match
+                if (debugMode) logProgress("      REJECTED: Departure date doesn't match (message: " + messageDate + ", target: " + targetDate + ")");
+                return false;
             }
+            if (debugMode) logProgress("      Departure date MATCHES");
         }
 
         // Check departure airport if specified
         if (departureAirport != null && !departureAirport.trim().isEmpty()) {
             if (details == null) {
-                return false; // No flight details available, can't match departure airport
+                if (debugMode) logProgress("      REJECTED: No flight details for departure airport check");
+                return false;
             }
             String targetAirport = departureAirport.trim().toUpperCase();
             String messageAirport = details.getDepartureAirport();
             if (messageAirport == null || !messageAirport.toUpperCase().equals(targetAirport)) {
-                return false; // Departure airport doesn't match
+                if (debugMode) logProgress("      REJECTED: Departure airport doesn't match (message: " + messageAirport + ", target: " + targetAirport + ")");
+                return false;
             }
+            if (debugMode) logProgress("      Departure airport MATCHES");
         }
 
         // Check arrival airport if specified
         if (arrivalAirport != null && !arrivalAirport.trim().isEmpty()) {
             if (details == null) {
-                return false; // No flight details available, can't match arrival airport
+                if (debugMode) logProgress("      REJECTED: No flight details for arrival airport check");
+                return false;
             }
             String targetAirport = arrivalAirport.trim().toUpperCase();
             String messageAirport = details.getArrivalAirport();
             if (messageAirport == null || !messageAirport.toUpperCase().equals(targetAirport)) {
-                return false; // Arrival airport doesn't match
+                if (debugMode) logProgress("      REJECTED: Arrival airport doesn't match (message: " + messageAirport + ", target: " + targetAirport + ")");
+                return false;
             }
+            if (debugMode) logProgress("      Arrival airport MATCHES");
         }
 
         // If we reach here, all specified criteria match
+        if (debugMode) logProgress("      ACCEPTED: All criteria match!");
         return true;
     }
 
