@@ -278,6 +278,20 @@ public class MessageParserController implements Initializable {
         return date != null;
     }
 
+    /**
+     * Cleans the flight number by removing special characters like '+'
+     * Example: "ME+571" becomes "ME571"
+     * @param flightNumber The raw flight number from user input
+     * @return Cleaned flight number without special characters
+     */
+    private String cleanFlightNumber(String flightNumber) {
+        if (flightNumber == null || flightNumber.isEmpty()) {
+            return flightNumber;
+        }
+        // Remove '+' character and any other special characters that might interfere
+        return flightNumber.replace("+", "");
+    }
+
     @FXML
     private void onBrowseLogDirectory() {
         DirectoryChooser directoryChooser = new DirectoryChooser();
@@ -303,7 +317,7 @@ public class MessageParserController implements Initializable {
     @FXML
     private void onProcessLogs() {
         String logDirectory = logDirectoryField.getText().trim();
-        String flightNumber = flightNumberField.getText().trim();
+        String flightNumber = cleanFlightNumber(flightNumberField.getText().trim());
         LocalDate selectedDate = departureDatePicker.getValue();
         String departureAirport = departureAirportField.getText().trim();
         String arrivalAirport = arrivalAirportField.getText().trim();
