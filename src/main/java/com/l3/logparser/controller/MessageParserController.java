@@ -931,7 +931,17 @@ public class MessageParserController implements Initializable {
 
             FlightDetails details = message.getFlightDetails();
             if (details != null) {
-                this.flightNumber = details.getFlightNumber() != null ? details.getFlightNumber() : "N/A";
+                // Build complete flight number: prefer message-level flight number first,
+                // then try to construct from details (airline code + flight number)
+                String messageFlight = message.getFlightNumber();
+                if (messageFlight != null && !messageFlight.trim().isEmpty()) {
+                    // Use the complete flight number from message level
+                    this.flightNumber = messageFlight;
+                } else {
+                    // Fallback: use flight number from details
+                    this.flightNumber = details.getFlightNumber() != null ? details.getFlightNumber() : "N/A";
+                }
+                
                 this.departureDateTime = formatDateTime(details.getDepartureDate(), details.getDepartureTime());
                 this.departureAirport = details.getDepartureAirport() != null ? details.getDepartureAirport() : "N/A";
                 this.arrivalAirport = details.getArrivalAirport() != null ? details.getArrivalAirport() : "N/A";
