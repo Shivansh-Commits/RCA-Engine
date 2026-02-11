@@ -927,7 +927,7 @@ public class MessageParserController implements Initializable {
 
         public MessageTableRow(EdifactMessage message, String requestedDataType) {
             this.originalMessage = message;
-            this.partNumber = message.getPartNumber();
+            this.partNumber = message.getPartNumber() == 0 ? 1: message.getPartNumber();
 
             FlightDetails details = message.getFlightDetails();
             if (details != null) {
