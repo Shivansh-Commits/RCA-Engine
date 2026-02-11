@@ -95,11 +95,31 @@ public class PnrEdifactParser {
         // - Log levels at start: INFO, DEBUG, WARN, ERROR (but not embedded in content)
         String[] logEntries = logContent.split("(?m)(?=^(?:INFO|DEBUG|WARN|ERROR)\\s+\\[|^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})");
         
+        if (debugMode) {
+            logProgress("  Split log content into " + logEntries.length + " log entries");
+        }
+        
+        int entryNum = 0;
         for (String logEntry : logEntries) {
-            if (containsPnrMessage(logEntry)) {
+            entryNum++;
+            boolean containsPnr = containsPnrMessage(logEntry);
+            
+            if (debugMode) {
+                logProgress("    Entry #" + entryNum + ": Length=" + logEntry.length() + 
+                           " chars, Contains PNR=" + containsPnr);
+            }
+            
+            if (containsPnr) {
                 PnrMessage message = parseLogEntry(logEntry, targetFlightNumber, messageType);
                 if (message != null) {
                     messages.add(message);
+                    if (debugMode) {
+                        logProgress("      → Message extracted successfully");
+                    }
+                } else {
+                    if (debugMode) {
+                        logProgress("      → Message parsing returned null (filtered out or parsing failed)");
+                    }
                 }
             }
         }
@@ -138,12 +158,22 @@ public class PnrEdifactParser {
             // Extract the EDIFACT message content
             String edifactContent = extractEdifactContent(logEntry);
             if (edifactContent == null || edifactContent.trim().isEmpty()) {
+                if (debugMode) {
+                    logProgress("        → extractEdifactContent returned null/empty");
+                }
                 return null;
+            }
+            
+            if (debugMode) {
+                logProgress("        → Extracted EDIFACT content: " + edifactContent.substring(0, Math.min(100, edifactContent.length())) + "...");
             }
             
             // Parse the EDIFACT message
             PnrMessage message = parseEdifactMessage(edifactContent);
             if (message == null) {
+                if (debugMode) {
+                    logProgress("        → parseEdifactMessage returned null");
+                }
                 return null;
             }
             
@@ -155,7 +185,13 @@ public class PnrEdifactParser {
             
             // Filter by flight number if specified
             if (targetFlightNumber != null && !targetFlightNumber.trim().isEmpty()) {
-                if (!isFlightMatch(message, targetFlightNumber)) {
+                boolean flightMatches = isFlightMatch(message, targetFlightNumber);
+                if (debugMode) {
+                    logProgress("        → Flight filter: target=" + targetFlightNumber + 
+                               ", message=" + message.getFlightNumber() + 
+                               ", matches=" + flightMatches);
+                }
+                if (!flightMatches) {
                     return null;
                 }
             }
@@ -163,6 +199,9 @@ public class PnrEdifactParser {
             return message;
             
         } catch (Exception e) {
+            if (debugMode) {
+                logProgress("        → Exception during parsing: " + e.getMessage());
+            }
             System.err.println("Error parsing log entry: " + e.getMessage());
             return null;
         }
@@ -174,8 +213,9 @@ public class PnrEdifactParser {
     private PnrMessage parseEdifactMessage(String edifactContent) {
         PnrMessage message = new PnrMessage();
         
-        // Detect separators from UNA or UNB segment
-        // In debug mode, log separator detection for the first message in each file
+        // Detect separators from UNA segment for this specific message
+        // Each message is processed independently - if it has UNA, use those separators
+        // If it doesn't have UNA, use default separators
         boolean shouldLogSeparators = debugMode && !separatorDetailsLogged;
         PnrSeparators separators = detectSeparators(edifactContent, shouldLogSeparators);
 
@@ -206,7 +246,9 @@ public class PnrEdifactParser {
      */
     private PnrSeparators detectSeparators(String edifactContent, boolean enableLogging) {
         // Try to find UNA segment first
-        int unaIndex = edifactContent.indexOf("UNA");
+        // UNA must be at the start of content or preceded only by whitespace/newlines
+        // This prevents false matches with words like "UNABLE", "TUNA", etc.
+        int unaIndex = findUnaSegmentStart(edifactContent);
         if (unaIndex >= 0) {
             int unaEnd = edifactContent.indexOf('\n', unaIndex);
             if (unaEnd == -1) unaEnd = edifactContent.indexOf(' ', unaIndex + 9);
@@ -275,6 +317,110 @@ public class PnrEdifactParser {
      */
     private PnrSeparators detectSeparators(String edifactContent) {
         return detectSeparators(edifactContent, false); // Default to no logging per message
+    }
+
+    /**
+     * Find the start position of a valid UNA segment in the content.
+     * UNA must:
+     * 1. Be at the start of content or immediately after whitespace/newlines
+     * 2. Be followed by exactly 6 separator characters (not letters)
+     * 3. The 6 characters should form valid EDIFACT separators
+     * 
+     * This prevents false matches with words like "UNABLE", "TUNA", etc.
+     * 
+     * @param content The EDIFACT content to search
+     * @return The index of "UNA" if found at a valid position, -1 otherwise
+     */
+    private int findUnaSegmentStart(String content) {
+        if (content == null || content.isEmpty() || content.length() < 9) {
+            return -1; // UNA segment needs at least 9 characters (UNA + 6 separators)
+        }
+        
+        int searchIndex = 0;
+        while (searchIndex < content.length()) {
+            int unaIndex = content.indexOf("UNA", searchIndex);
+            
+            if (unaIndex == -1) {
+                return -1; // No more "UNA" found
+            }
+            
+            // Check if there's enough space for UNA + 6 separator characters
+            if (unaIndex + 9 > content.length()) {
+                return -1; // Not enough characters left
+            }
+            
+            // Check position validity (at start or after whitespace)
+            boolean validPosition = false;
+            if (unaIndex == 0) {
+                validPosition = true;
+            } else {
+                char charBefore = content.charAt(unaIndex - 1);
+                if (charBefore == '\n' || charBefore == '\r' || 
+                    charBefore == ' ' || charBefore == '\t') {
+                    validPosition = true;
+                }
+            }
+            
+            if (!validPosition) {
+                // This "UNA" is part of another word (like "UNABLE")
+                searchIndex = unaIndex + 3;
+                continue;
+            }
+            
+            // Validate the UNA segment structure
+            // UNA should be followed by 6 separator characters, then typically UNB
+            if (isValidUnaStructure(content, unaIndex)) {
+                return unaIndex;
+            }
+            
+            // This looked like UNA but isn't valid, continue searching
+            searchIndex = unaIndex + 3;
+        }
+        
+        return -1; // No valid UNA segment found
+    }
+    
+    /**
+     * Validate that the UNA segment has proper structure.
+     * After "UNA" there should be 6 separator characters, followed by "UNB" or other segment.
+     * The 6 characters should not all be letters (like in "UNABLE TO")
+     */
+    private boolean isValidUnaStructure(String content, int unaIndex) {
+        if (unaIndex + 9 > content.length()) {
+            return false;
+        }
+        
+        // Extract the 6 potential separator characters after "UNA"
+        String potentialSeparators = content.substring(unaIndex + 3, unaIndex + 9);
+        
+        // Check 1: Not all characters should be letters ("UNABLE" would fail this)
+        int letterCount = 0;
+        for (char c : potentialSeparators.toCharArray()) {
+            if (Character.isLetter(c)) {
+                letterCount++;
+            }
+        }
+        // If more than 3 characters are letters, it's likely a word, not separators
+        if (letterCount > 3) {
+            return false;
+        }
+        
+        // Check 2: After UNA + 6 separators, we should typically see "UNB"
+        // Look ahead to see if there's a valid EDIFACT segment tag
+        if (unaIndex + 12 <= content.length()) {
+            String nextThreeChars = content.substring(unaIndex + 9, unaIndex + 12);
+            // Common EDIFACT segment tags after UNA
+            if (nextThreeChars.equals("UNB") || nextThreeChars.equals("UNH") || 
+                nextThreeChars.equals("UNG") || nextThreeChars.equals("UNZ")) {
+                return true;
+            }
+        }
+        
+        // Check 3: The 6 characters should include typical separator characters
+        // Typical separators include: : + . ? * ' ~ ! | -
+        boolean hasTypicalSeparators = potentialSeparators.matches(".*[+:'.*?|~!-].*");
+        
+        return hasTypicalSeparators;
     }
 
     /**
@@ -503,8 +649,8 @@ public class PnrEdifactParser {
             if (messageBodyIndex >= 0) {
                 String afterMessageBody = logEntry.substring(messageBodyIndex + "Message body [".length());
                 
-                // Look for UNA or UNB after the Message body marker
-                int unaIndex = afterMessageBody.indexOf("UNA");
+                // Use smart UNA detection to avoid matching "UNABLE"
+                int unaIndex = findUnaSegmentStart(afterMessageBody);
                 int unbIndex = afterMessageBody.indexOf("UNB+");
                 
                 if (unaIndex >= 0) {
@@ -517,10 +663,12 @@ public class PnrEdifactParser {
         
         // Fallback to original logic if not found in Message body
         if (startIndex < 0) {
-            // Try UNA first
-            startIndex = logEntry.indexOf("UNA");
-            if (startIndex < 0) {
-                // Try UNB
+            // Use smart UNA detection instead of simple indexOf
+            int unaIndex = findUnaSegmentStart(logEntry);
+            if (unaIndex >= 0) {
+                startIndex = unaIndex;
+            } else {
+                // Try UNB if no valid UNA found
                 startIndex = logEntry.indexOf("UNB+");
             }
         }
