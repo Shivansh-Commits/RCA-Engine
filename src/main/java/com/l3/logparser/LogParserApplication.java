@@ -11,7 +11,7 @@ import java.io.IOException;
  * Main application class for the Message Extractor module
  * This module extracts API/PNR data from raw log files
  */
-public class MessageParserController extends Application {
+public class MessageExtractorApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) throws IOException {
