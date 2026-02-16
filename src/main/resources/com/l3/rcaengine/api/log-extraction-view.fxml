@@ -20,7 +20,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="916.0" prefWidth="1025.0" stylesheets="@log-extraction-styles.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logextractor.controller.LogExtractionController">
+<BorderPane prefHeight="916.0" prefWidth="1025.0" stylesheets="@log-extraction-styles.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.logextractor.controller.LogExtractionController">
    <bottom>
       <SplitPane dividerPositions="0.5" orientation="VERTICAL" prefHeight="564.0" prefWidth="1026.0" BorderPane.alignment="CENTER">
          <items>
@@ -156,6 +156,11 @@
                                     <Tooltip text="Configure Azure DevOps connection settings" />
                                 </tooltip>
                             </Button>
+                            <Button fx:id="customiseSearchButton" maxWidth="140.0" minWidth="120.0" onAction="#onCustomiseSearch" styleClass="actionButton" text="🔍 Search Profiles">
+                                <tooltip>
+                                    <Tooltip text="Manage search templates and log files to search" />
+                                </tooltip>
+                            </Button>
                           <Button fx:id="clearButton" minWidth="100.0" onAction="#onClear" styleClass="secondaryButton" text="🗑 Clear" />
                           <Region HBox.hgrow="ALWAYS" />
                           <VBox alignment="CENTER_RIGHT" spacing="4.0">
@@ -186,7 +191,7 @@
                                       <children>
                                           <Label minWidth="120.0" text="Output Directory:" />
                                           <TextField fx:id="outputDirectoryField" promptText="Select directory to save extracted logs" HBox.hgrow="ALWAYS" />
-                                          <Button fx:id="browseOutputButton" onAction="#onBrowseOutput" styleClass="browseButton" text="📁 Browse" />
+                                          <Button fx:id="browseOutputButton" minWidth="110.0" onAction="#onBrowseOutput" styleClass="browseButton" text="🗁 Browse" />
                                       </children>
                                   </HBox>
                                   <HBox alignment="CENTER_LEFT" spacing="12.0">

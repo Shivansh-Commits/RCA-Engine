@@ -193,7 +193,7 @@ public class AdvancedConfigController implements Initializable {
 
         alert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
-                config = new AdvancedParserConfig();
+                config.resetToDefaults();
                 loadConfigurationData();
             }
         });

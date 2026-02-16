@@ -6,6 +6,7 @@ import com.l3.logextractor.model.LogFileEntry;
 import com.l3.logextractor.model.PipelineRunResult;
 import com.l3.logextractor.service.AzurePipelineService;
 import com.l3.logextractor.service.FileDownloadService;
+import com.l3.logextractor.service.SearchProfilesService;
 import com.l3.common.util.VersionUtil;
 import com.l3.common.util.PropertiesUtil;
 import javafx.application.Platform;
@@ -15,11 +16,15 @@ import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
 import javafx.scene.layout.GridPane;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Stage;
+import javafx.scene.Scene;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,7 +37,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.concurrent.*;
@@ -50,6 +54,7 @@ public class LogExtractionController implements Initializable {
     @FXML private Button extractButton;
     @FXML private Button clearButton;
     @FXML private Button configureButton;
+    @FXML private Button customiseSearchButton;
 
     // Results table
     @FXML private TableView<LogFileEntry> extractedFilesTable;
@@ -76,6 +81,7 @@ public class LogExtractionController implements Initializable {
     private AzureConfig azureConfig;
     private AzurePipelineService pipelineService;
     private FileDownloadService fileDownloadService;
+    private SearchProfilesService searchProfilesService;
     private ObservableList<LogFileEntry> extractedFiles;
     private PipelineRunResult currentRun;
     private ScheduledExecutorService statusChecker;
@@ -197,6 +203,8 @@ public class LogExtractionController implements Initializable {
         azureConfig = new AzureConfig();
         pipelineService = new AzurePipelineService(azureConfig);
         fileDownloadService = new FileDownloadService(azureConfig);
+        fileDownloadService.setLogExtractionController(this);
+        searchProfilesService = new SearchProfilesService();
         // statusChecker will be created per extraction to avoid reuse issues
     }
 
@@ -211,6 +219,18 @@ public class LogExtractionController implements Initializable {
             addLogMessage("No saved configuration found. Using default values.");
             addLogMessage("Click '⚙ Configure Azure' to set up Azure DevOps connection.");
         }
+
+        // Show active search template
+        searchProfilesService.getActiveTemplate().ifPresentOrElse(
+            template -> {
+                addLogMessage("Active search template: " + template.getName() +
+                    " (" + template.getLogFiles().size() + " log files)");
+                addLogMessage("    Log files: " + String.join(", ", template.getLogFiles()));
+            },
+            () -> {
+                addLogMessage("⚠ No active search template. Click 'Customise Search' to configure.");
+            }
+        );
     }
 
     @FXML
@@ -235,13 +255,25 @@ public class LogExtractionController implements Initializable {
         }
 
         if (environment == null || environment.trim().isEmpty()) {
-            showAlert("Configuration Error", "Please configure the environment in Azure settings (⚙ Configure Azure button).");
+            showAlert("Configuration Error", "Please configure the environment in Azure settings (Configure Azure button).");
             return;
         }
 
-        // Create extraction request with environment
+        // Get log files from active search template
+        List<String> logFiles = searchProfilesService.getActiveLogFiles();
+        if (logFiles.isEmpty()) {
+            showAlert("Configuration Error", "No active search template found. Please configure search templates (Customise Search button).");
+            return;
+        }
+
+        // Create extraction request with environment and log files
         LocalDateTime incidentDateTime = LocalDateTime.of(incidentDate, LocalTime.MIDNIGHT);
-        LogExtractionRequest request = new LogExtractionRequest(flightNumber, incidentDateTime, environment);
+        LogExtractionRequest request = new LogExtractionRequest(flightNumber, incidentDateTime, environment, logFiles);
+
+        // Log the active template being used
+        searchProfilesService.getActiveTemplate().ifPresent(template ->
+            addLogMessage("Using search template: " + template.getName() + " (" + logFiles.size() + " log files)")
+        );
 
         // Clear previous results
         extractedFiles.clear();
@@ -448,6 +480,47 @@ public class LogExtractionController implements Initializable {
         showAzureConfigurationDialog();
     }
 
+    @FXML
+    private void onCustomiseSearch() {
+        showSearchTemplateDialog();
+    }
+
+    private void showSearchTemplateDialog() {
+        try {
+            FXMLLoader fxmlLoader = new FXMLLoader(
+                getClass().getResource("/com/l3/rcaengine/api/search-profiles-view.fxml")
+            );
+            Scene scene = new Scene(fxmlLoader.load());
+
+            Stage dialog = new Stage();
+            dialog.setTitle("Search Template Manager");
+            dialog.getIcons().add(new Image(getClass().getResourceAsStream("/images/L3_engine_logo.png")));
+            dialog.setScene(scene);
+            dialog.setMinWidth(900);
+            dialog.setMinHeight(600);
+            dialog.setResizable(true);
+
+            // Get the controller to access template manager after dialog closes
+            SearchProfilesController controller = fxmlLoader.getController();
+
+            // Show dialog and wait for it to close
+            dialog.showAndWait();
+
+            // Refresh template manager after dialog closes (in case templates were modified)
+            searchProfilesService = controller.getTemplateManager();
+
+            // Log the active template
+            searchProfilesService.getActiveTemplate().ifPresent(template ->
+                addLogMessage("Active search template: " + template.getName() +
+                    " (" + template.getLogFiles().size() + " log files)")
+            );
+
+        } catch (IOException e) {
+            addLogMessage("Error opening search template dialog: " + e.getMessage());
+            showAlert("Error", "Failed to open search template dialog: " + e.getMessage());
+        }
+    }
+
     private void showAzureConfigurationDialog() {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Azure DevOps Configuration");
@@ -547,6 +620,7 @@ public class LogExtractionController implements Initializable {
                 }
                 pipelineService = new AzurePipelineService(azureConfig);
                 fileDownloadService = new FileDownloadService(azureConfig);
+                fileDownloadService.setLogExtractionController(this);
 
                 // Save configuration to file
                 boolean saved = azureConfig.saveToFile();
@@ -1188,6 +1262,29 @@ public class LogExtractionController implements Initializable {
                 logArea.setScrollTop(Double.MAX_VALUE);
             });
         }
+    }
+
+    /**
+     * Update file size for a specific file in the table
+     * Called by FileDownloadService after recalculating actual file sizes
+     */
+    public void updateFileSize(String fileName, long actualSize) {
+        Platform.runLater(() -> {
+            boolean updated = false;
+            for (LogFileEntry entry : extractedFiles) {
+                if (entry.getFileName().equals(fileName)) {
+                    String formattedSize = formatFileSize(actualSize);
+                    entry.setFileSize(String.valueOf(actualSize)); // Store as string (bytes)
+                    updated = true;
+                    addLogMessage(" Updated size for " + fileName + ": " + formattedSize);
+                    break;
+                }
+            }
+
+            if (updated) {
+                extractedFilesTable.refresh();
+            }
+        });
     }
 
     /**
