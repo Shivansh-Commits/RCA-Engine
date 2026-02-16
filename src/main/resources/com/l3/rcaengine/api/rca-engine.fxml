@@ -9,6 +9,7 @@
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
@@ -20,7 +21,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="936.0" prefWidth="1345.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.rcaengine.controller.MainController">
+<BorderPane prefHeight="936.0" prefWidth="1345.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.l3.rcaengine.controller.MainController">
     <top>
         <VBox prefHeight="136.0" prefWidth="1278.0">
          <BorderPane prefHeight="32.0" prefWidth="1278.0" styleClass="header_borderpane" stylesheets="@rca-engine.css">
@@ -231,96 +232,94 @@
         </VBox>
     </top>
    <center>
-      <BorderPane BorderPane.alignment="CENTER">
-         <top>
-              <VBox prefHeight="722.0" prefWidth="1278.0" stylesheets="@rca-engine.css" BorderPane.alignment="CENTER">
-               <HBox alignment="CENTER" maxWidth="1.7976931348623157E308">
-                  <children>
-                     <VBox alignment="CENTER" maxWidth="1.7976931348623157E308">
-                        <children>
-                           <TextField fx:id="inputSearchField" alignment="CENTER" promptText="Input Passengers" />
-                              <TableView fx:id="inputPaxTable" maxWidth="1.7976931348623157E308" prefHeight="420" prefWidth="857.0">
-                                  <columns>
-                                      <TableColumn fx:id="inputPaxColNo" prefWidth="50" text="No." />
-                                      <TableColumn fx:id="inputPaxColName" prefWidth="360" text="NAD (Passenger Name)" />
-                                      <TableColumn fx:id="inputPaxColDTM" prefWidth="80" text="DTM" />
-                                      <TableColumn fx:id="inputPaxColDOC" prefWidth="110" text="DOC" />
-                                      <TableColumn fx:id="inputPaxColRecordedKey" prefWidth="360" text="RecordedKey" />
-                                      <TableColumn fx:id="inputPaxColSource" prefWidth="120" text="Source" />
-                                      <TableColumn fx:id="inputPaxColCount" prefWidth="60" text="Count" />
-                                  </columns>
-                              </TableView>
-                        </children>
-                     </VBox>
-                     <VBox alignment="CENTER" maxWidth="1.7976931348623157E308">
-                        <children>
-                           <TextField fx:id="outputSearchField" alignment="CENTER" promptText="Output Passengers" />
-                           <TableView fx:id="outputPaxTable" maxWidth="1.7976931348623157E308" prefHeight="420" prefWidth="857.0">
-                              <columns>
-                                 <TableColumn fx:id="outputPaxColNo" prefWidth="50" text="No." />
-                                 <TableColumn fx:id="outputPaxColName" prefWidth="360" text="NAD (Passenger Name)" />
-                                 <TableColumn fx:id="outputPaxColDTM" prefWidth="80" text="DTM" />
-                                 <TableColumn fx:id="outputPaxColDOC" prefWidth="110" text="DOC" />
-                                 <TableColumn fx:id="outputPaxColRecordedKey" prefWidth="360" text="RecordedKey" />
-                                 <TableColumn fx:id="outputPaxColSource" prefWidth="120" text="Source" />
-                                 <TableColumn fx:id="outputPaxColCount" prefWidth="60" text="Count" />
-                              </columns>
+      <SplitPane dividerPositions="0.5" orientation="VERTICAL" BorderPane.alignment="CENTER">
+         <items>
+            <HBox alignment="CENTER" maxWidth="1.7976931348623157E308">
+               <children>
+                  <VBox alignment="CENTER" maxWidth="1.7976931348623157E308">
+                     <children>
+                        <TextField fx:id="inputSearchField" alignment="CENTER" promptText="Input Passengers" />
+                           <TableView fx:id="inputPaxTable" maxWidth="1.7976931348623157E308">
+                               <columns>
+                                   <TableColumn fx:id="inputPaxColNo" prefWidth="50" text="No." />
+                                   <TableColumn fx:id="inputPaxColName" prefWidth="360" text="NAD (Passenger Name)" />
+                                   <TableColumn fx:id="inputPaxColDTM" prefWidth="80" text="DTM" />
+                                   <TableColumn fx:id="inputPaxColDOC" prefWidth="110" text="DOC" />
+                                   <TableColumn fx:id="inputPaxColRecordedKey" prefWidth="360" text="RecordedKey" />
+                                   <TableColumn fx:id="inputPaxColSource" prefWidth="120" text="Source" />
+                                   <TableColumn fx:id="inputPaxColCount" prefWidth="60" text="Count" />
+                               </columns>
                            </TableView>
-                        </children>
-                     </VBox>
-                  </children>
-               </HBox>
-               <VBox prefHeight="335.0" prefWidth="1278.0">
-                  <children>
-                     <Accordion prefHeight="331.0" prefWidth="1278.0">
-                       <panes>
-                           <TitledPane animated="false" text="Dropped Passengers">
-                              <content>
-                                 <TableView fx:id="droppedPassengersTable" prefHeight="420" prefWidth="857.0">
-                                    <columns>
-                                       <TableColumn fx:id="droppedColNo" prefWidth="50" text="No." />
-                                       <TableColumn fx:id="droppedColName" prefWidth="360" text="NAD (Passenger Name)" />
-                                       <TableColumn fx:id="droppedColDTM" prefWidth="80" text="DTM" />
-                                       <TableColumn fx:id="droppedColDOC" prefWidth="110" text="DOC" />
-                                       <TableColumn fx:id="droppedColRecordedKey" prefWidth="360" text="RecordedKey" />
-                                       <TableColumn fx:id="droppedColSource" prefWidth="120" text="Source" />
-                                       <TableColumn fx:id="droppedColCount" prefWidth="60" text="Count" />
-                                    </columns>
-                                 </TableView>
-                              </content>
+                     </children>
+                  </VBox>
+                  <VBox alignment="CENTER" maxWidth="1.7976931348623157E308">
+                     <children>
+                        <TextField fx:id="outputSearchField" alignment="CENTER" promptText="Output Passengers" />
+                        <TableView fx:id="outputPaxTable" maxWidth="1.7976931348623157E308">
+                           <columns>
+                              <TableColumn fx:id="outputPaxColNo" prefWidth="50" text="No." />
+                              <TableColumn fx:id="outputPaxColName" prefWidth="360" text="NAD (Passenger Name)" />
+                              <TableColumn fx:id="outputPaxColDTM" prefWidth="80" text="DTM" />
+                              <TableColumn fx:id="outputPaxColDOC" prefWidth="110" text="DOC" />
+                              <TableColumn fx:id="outputPaxColRecordedKey" prefWidth="360" text="RecordedKey" />
+                              <TableColumn fx:id="outputPaxColSource" prefWidth="120" text="Source" />
+                              <TableColumn fx:id="outputPaxColCount" prefWidth="60" text="Count" />
+                           </columns>
+                        </TableView>
+                     </children>
+                  </VBox>
+               </children>
+            </HBox>
+            <VBox prefHeight="335.0" prefWidth="1278.0" stylesheets="@rca-engine.css">
+               <children>
+                  <Accordion prefWidth="1278.0">
+                    <panes>
+                        <TitledPane animated="false" text="Dropped Passengers">
+                           <content>
+                              <TableView fx:id="droppedPassengersTable" prefWidth="857.0">
+                                 <columns>
+                                    <TableColumn fx:id="droppedColNo" prefWidth="50" text="No." />
+                                    <TableColumn fx:id="droppedColName" prefWidth="360" text="NAD (Passenger Name)" />
+                                    <TableColumn fx:id="droppedColDTM" prefWidth="80" text="DTM" />
+                                    <TableColumn fx:id="droppedColDOC" prefWidth="110" text="DOC" />
+                                    <TableColumn fx:id="droppedColRecordedKey" prefWidth="360" text="RecordedKey" />
+                                    <TableColumn fx:id="droppedColSource" prefWidth="120" text="Source" />
+                                    <TableColumn fx:id="droppedColCount" prefWidth="60" text="Count" />
+                                 </columns>
+                              </TableView>
+                           </content>
+                        </TitledPane>
+                        <TitledPane animated="false" text="Duplicate Passengers">
+                           <content>
+                              <TableView fx:id="duplicatePassengersTable" prefWidth="857.0">
+                                 <columns>
+                                    <TableColumn fx:id="duplicateColNo" prefWidth="50" text="No." />
+                                    <TableColumn fx:id="duplicateColName" prefWidth="360" text="NAD (Passenger Name)" />
+                                    <TableColumn fx:id="duplicateColDTM" prefWidth="80" text="DTM" />
+                                    <TableColumn fx:id="duplicateColDOC" prefWidth="110" text="DOC" />
+                                    <TableColumn fx:id="duplicateColRecordedKey" prefWidth="360" text="RecordedKey" />
+                                    <TableColumn fx:id="duplicateColSource" prefWidth="120" text="Source" />
+                                    <TableColumn fx:id="duplicateColCount" prefWidth="60" text="Count" />
+                                 </columns>
+                              </TableView>
+                           </content>
+                        </TitledPane>
+                      <TitledPane animated="false" text="Files Processed">
+                           <content>
+                              <ListView fx:id="filesProcessedList" prefWidth="200.0" />
+                           </content>
+                      </TitledPane>
+               
+                                          <TitledPane animated="false" prefHeight="201.0" prefWidth="1278.0" text="Warnings">
+                               <content>
+                                   <ListView fx:id="warningsList" />
+                               </content>
                            </TitledPane>
-                           <TitledPane animated="false" text="Duplicate Passengers">
-                              <content>
-                                 <TableView fx:id="duplicatePassengersTable" prefHeight="420" prefWidth="857.0">
-                                    <columns>
-                                       <TableColumn fx:id="duplicateColNo" prefWidth="50" text="No." />
-                                       <TableColumn fx:id="duplicateColName" prefWidth="360" text="NAD (Passenger Name)" />
-                                       <TableColumn fx:id="duplicateColDTM" prefWidth="80" text="DTM" />
-                                       <TableColumn fx:id="duplicateColDOC" prefWidth="110" text="DOC" />
-                                       <TableColumn fx:id="duplicateColRecordedKey" prefWidth="360" text="RecordedKey" />
-                                       <TableColumn fx:id="duplicateColSource" prefWidth="120" text="Source" />
-                                       <TableColumn fx:id="duplicateColCount" prefWidth="60" text="Count" />
-                                    </columns>
-                                 </TableView>
-                              </content>
-                           </TitledPane>
-                         <TitledPane animated="false" text="Files Processed">
-                              <content>
-                                 <ListView fx:id="filesProcessedList" prefHeight="200.0" prefWidth="200.0" />
-                              </content>
-                         </TitledPane>
-                  
-                                    <TitledPane animated="false" prefHeight="201.0" prefWidth="1278.0" text="Warnings">
-                                  <content>
-                                      <ListView fx:id="warningsList" prefHeight="120" />
-                                  </content>
-                              </TitledPane>
-                       </panes>
-                     </Accordion>
-                  </children>
-               </VBox>
-              </VBox>
-         </top>
-      </BorderPane>
+                    </panes>
+                  </Accordion>
+               </children>
+            </VBox>
+         </items>
+      </SplitPane>
    </center>
 </BorderPane>

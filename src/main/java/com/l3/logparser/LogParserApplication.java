@@ -11,11 +11,11 @@ import java.io.IOException;
  * Main application class for the Message Extractor module
  * This module extracts API/PNR data from raw log files
  */
-public class MessageExtractorApplication extends Application {
+public class LogParserApplication extends Application {
 
     @Override
     public void start(Stage primaryStage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(MessageExtractorApplication.class.getResource("/com/l3/rcaengine/api/log-parser-view.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(LogParserApplication.class.getResource("/com/l3/rcaengine/api/log-parser-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load());
 
         primaryStage.setTitle("L3 Engine - Log Parser Module");
