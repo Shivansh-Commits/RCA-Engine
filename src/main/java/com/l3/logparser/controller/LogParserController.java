@@ -44,7 +44,7 @@ import java.util.ResourceBundle;
  * Controller for the Message Extractor UI
  * Handles both API and PNR data extraction
  */
-public class LogParserController implements Initializable {
+public class MessageParserController implements Initializable {
 
     @FXML private TextField logDirectoryField;
     @FXML private Button browseButton;
