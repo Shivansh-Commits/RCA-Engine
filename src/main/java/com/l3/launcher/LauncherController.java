@@ -58,7 +58,7 @@ public class LauncherController implements Initializable {
     @FXML
     private void openLogParserModule() {
         try {
-            MessageExtractorApplication  messageExtractorApp = new MessageExtractorApplication();
+            MessageExtractorApplication messageExtractorApp = new MessageExtractorApplication();
             Stage logParserStage = new Stage();
             logParserStage.getIcons().add(new Image(getClass().getResourceAsStream("/images/L3_engine_logo.png")));
             messageExtractorApp.start(logParserStage);
