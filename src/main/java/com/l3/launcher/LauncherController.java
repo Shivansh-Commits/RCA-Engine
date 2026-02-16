@@ -1,7 +1,7 @@
 package com.l3.launcher;
 
 import com.l3.rcaengine.controller.MainApp;
-import com.l3.logparser.LogParserApplication;
+import com.l3.logparser.MessageExtractorApplication;
 import com.l3.logextractor.LogExtractionApplication;
 import com.l3.common.util.VersionUtil;
 import javafx.fxml.FXML;
@@ -58,7 +58,7 @@ public class LauncherController implements Initializable {
     @FXML
     private void openLogParserModule() {
         try {
-            LogParserApplication messageExtractorApp = new LogParserApplication();
+            MessageExtractorApplication  messageExtractorApp = new MessageExtractorApplication();
             Stage logParserStage = new Stage();
             logParserStage.getIcons().add(new Image(getClass().getResourceAsStream("/images/L3_engine_logo.png")));
             messageExtractorApp.start(logParserStage);
