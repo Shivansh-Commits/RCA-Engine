@@ -1,12 +1,11 @@
 package com.l3.logparser.config;
 
-import com.l3.common.util.PropertiesUtil;
-
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Advanced configuration for EDIFACT message pattern matching and segment codes
@@ -19,10 +18,44 @@ public class AdvancedParserConfig {
 
     // PNR Configuration (for future implementation)
     private PnrPatternConfig pnrConfig;
+    
+    // Progress callback for UI logging
+    private Consumer<String> progressCallback;
+    
+    // Debug mode flag
+    private boolean debugMode = false;
 
     public AdvancedParserConfig() {
         loadDefaultConfiguration();
         loadFromFile();
+    }
+    
+    /**
+     * Set progress callback for UI logging
+     * This will propagate to all sub-configs
+     */
+    public void setProgressCallback(Consumer<String> callback) {
+        this.progressCallback = callback;
+        if (pnrConfig != null) {
+            pnrConfig.setProgressCallback(callback);
+        }
+    }
+    
+    /**
+     * Enable or disable debug mode for detailed logging
+     */
+    public void setDebugMode(boolean debugMode) {
+        this.debugMode = debugMode;
+        if (pnrConfig != null) {
+            pnrConfig.setDebugMode(debugMode);
+        }
+    }
+    
+    /**
+     * Get debug mode status
+     */
+    public boolean isDebugMode() {
+        return debugMode;
     }
 
     /**
@@ -45,6 +78,14 @@ public class AdvancedParserConfig {
     public void resetToDefaults() {
         loadDefaultConfiguration();
     }
+    
+    /**
+     * Reload configuration from file
+     * Useful when callback or debug mode is set after construction
+     */
+    public void reload() {
+        loadFromFile();
+    }
 
     /**
      * Load configuration from user config file
@@ -59,6 +100,12 @@ public class AdvancedParserConfig {
             Properties props = new Properties();
             try (FileInputStream fis = new FileInputStream(configFile.toFile())) {
                 props.load(fis);
+            }
+
+            // Set progress callback and debug mode for PNR config before loading
+            if (pnrConfig != null) {
+                pnrConfig.setProgressCallback(progressCallback);
+                pnrConfig.setDebugMode(debugMode);
             }
 
             // Load API configuration

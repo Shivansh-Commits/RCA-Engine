@@ -47,6 +47,16 @@ public class PnrEdifactParser {
      */
     public void setAdvancedConfig(AdvancedParserConfig config) {
         this.advancedConfig = config;
+        if (config != null) {
+            // Set progress callback and debug mode on config for logging
+            config.setProgressCallback(this.progressCallback);
+            config.setDebugMode(this.debugMode);
+            
+            // Reload config to show debug logs if debug mode is enabled
+            if (this.debugMode) {
+                config.reload();
+            }
+        }
     }
 
     /**
@@ -56,6 +66,10 @@ public class PnrEdifactParser {
         this.progressCallback = callback;
         // Also set the callback for PnrSeparators detailed logging
         PnrSeparators.setLogCallback(callback);
+        // Update config callback if config is already set
+        if (advancedConfig != null) {
+            advancedConfig.setProgressCallback(callback);
+        }
     }
 
     /**
@@ -63,6 +77,14 @@ public class PnrEdifactParser {
      */
     public void setDebugMode(boolean debugMode) {
         this.debugMode = debugMode;
+        // Update config debug mode and reload if debug is enabled and config is set
+        if (advancedConfig != null) {
+            advancedConfig.setDebugMode(debugMode);
+            if (debugMode && progressCallback != null) {
+                // Reload config to show debug logs
+                advancedConfig.reload();
+            }
+        }
     }
 
     /**

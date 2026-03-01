@@ -1,6 +1,7 @@
 package com.l3.logparser.config;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Configuration for PNR message patterns
@@ -10,9 +11,45 @@ public class PnrPatternConfig {
 
     // Message start patterns
     private List<MessagePattern> messageStartPatterns;
+    
+    // Progress callback for UI logging
+    private Consumer<String> progressCallback;
+    
+    // Debug mode flag
+    private boolean debugMode = false;
 
     public PnrPatternConfig() {
         this.messageStartPatterns = new ArrayList<>();
+    }
+    
+    /**
+     * Set progress callback for UI logging
+     */
+    public void setProgressCallback(Consumer<String> callback) {
+        this.progressCallback = callback;
+    }
+    
+    /**
+     * Log a progress message to the UI
+     */
+    private void logProgress(String message) {
+        if (progressCallback != null) {
+            progressCallback.accept(message);
+        }
+    }
+    
+    /**
+     * Enable or disable debug mode for detailed logging
+     */
+    public void setDebugMode(boolean debugMode) {
+        this.debugMode = debugMode;
+    }
+    
+    /**
+     * Get debug mode status
+     */
+    public boolean isDebugMode() {
+        return debugMode;
     }
 
     /**
@@ -71,9 +108,18 @@ public class PnrPatternConfig {
     private void loadMessagePatternsFromProperties(Properties props) {
         // Load custom message patterns if they exist
         int patternCount = Integer.parseInt(props.getProperty("pnr.patterns.count", "0"));
+        
+        if (debugMode) {
+            logProgress("[PNR Config Debug] Loading PNR patterns from properties...");
+            logProgress("[PNR Config Debug] Found " + patternCount + " patterns in configuration");
+        }
 
         if (patternCount > 0) {
             messageStartPatterns.clear();
+            
+            if (debugMode) {
+                logProgress("[PNR Config Debug] Clearing existing patterns and loading from properties");
+            }
 
             for (int i = 0; i < patternCount; i++) {
                 String prefix = "pnr.pattern." + i + ".";
@@ -81,20 +127,46 @@ public class PnrPatternConfig {
                 String type = props.getProperty(prefix + "type", "contains");
                 String value = props.getProperty(prefix + "value", "");
                 boolean enabled = Boolean.parseBoolean(props.getProperty(prefix + "enabled", "true"));
+                
+                if (debugMode) {
+                    logProgress("[PNR Config Debug] Pattern " + i + ":");
+                    logProgress("    Name: " + name);
+                    logProgress("    Type: " + type);
+                    logProgress("    Value: " + value);
+                    logProgress("    Enabled: " + enabled);
+                }
 
                 MessagePattern pattern = new MessagePattern(name, type, value, enabled);
 
                 if ("multiple".equals(type)) {
                     int conditionCount = Integer.parseInt(props.getProperty(prefix + "conditions.count", "0"));
+                    
+                    if (debugMode) {
+                        logProgress("    Conditions count: " + conditionCount);
+                    }
+                    
                     for (int j = 0; j < conditionCount; j++) {
                         String condPrefix = prefix + "condition." + j + ".";
                         String condType = props.getProperty(condPrefix + "type", "contains");
                         String condValue = props.getProperty(condPrefix + "value", "");
+                        
+                        if (debugMode) {
+                            logProgress("      Condition " + j + ": [" + condType + "] = '" + condValue + "'");
+                        }
+                        
                         pattern.addCondition(condType, condValue);
                     }
                 }
 
                 messageStartPatterns.add(pattern);
+            }
+            
+            if (debugMode) {
+                logProgress("[PNR Config Debug] Successfully loaded " + messageStartPatterns.size() + " PNR patterns");
+            }
+        } else {
+            if (debugMode) {
+                logProgress("[PNR Config Debug] No patterns found in properties, using defaults");
             }
         }
     }

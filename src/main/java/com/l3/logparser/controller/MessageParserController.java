@@ -153,6 +153,18 @@ public class MessageParserController implements Initializable {
 
             // Load current configuration or create new one
             AdvancedParserConfig currentConfig = new AdvancedParserConfig();
+            
+            // Set progress callback for config loading logs
+            currentConfig.setProgressCallback(this::addLogMessage);
+            
+            // Set debug mode from controller's debug mode
+            currentConfig.setDebugMode(debugMode);
+            
+            // Reload config with callback and debug mode enabled
+            if (debugMode) {
+                currentConfig.reload();
+            }
+            
             controller.setConfig(currentConfig);
 
             // Show dialog and wait for result
