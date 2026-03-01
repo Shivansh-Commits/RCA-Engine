@@ -180,8 +180,12 @@ public class MessageParserController implements Initializable {
      * Update the message extraction service with new configuration
      */
     private void updateMessageExtractionService(AdvancedParserConfig config) {
-        // Update the message extraction service to use the new configuration
+        // Update the API message extraction service to use the new configuration
         messageParserService.updateParserConfiguration(config);
+        
+        // Update the PNR extraction service to use the new configuration
+        pnrExtractionService.setAdvancedConfig(config);
+        
         addLogMessage("Parser configuration updated with new patterns and segment codes.");
     }
 

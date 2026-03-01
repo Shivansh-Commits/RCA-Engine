@@ -1,6 +1,6 @@
 package com.l3.logparser.controller;
 
-import com.l3.logparser.config.ApiPatternConfig;
+import com.l3.logparser.config.PnrPatternConfig;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -15,9 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Dialog for editing individual message patterns
+ * Dialog for editing individual PNR message patterns
  */
-public class PatternEditDialog extends Dialog<ApiPatternConfig.MessagePattern> {
+public class PnrPatternEditDialog extends Dialog<PnrPatternConfig.MessagePattern> {
 
     private TextField nameField;
     private ComboBox<String> typeComboBox;
@@ -29,9 +29,9 @@ public class PatternEditDialog extends Dialog<ApiPatternConfig.MessagePattern> {
     private ObservableList<ConditionRow> conditionData;
     private VBox conditionsContainer;
 
-    public PatternEditDialog(ApiPatternConfig.MessagePattern existingPattern) {
-        setTitle("Edit Message Pattern");
-        setHeaderText("Configure message start pattern");
+    public PnrPatternEditDialog(PnrPatternConfig.MessagePattern existingPattern) {
+        setTitle("Edit PNR Pattern");
+        setHeaderText("Configure PNR message start pattern");
 
         // Set the button types
         ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
@@ -63,7 +63,7 @@ public class PatternEditDialog extends Dialog<ApiPatternConfig.MessagePattern> {
         });
     }
 
-    private VBox createContent(ApiPatternConfig.MessagePattern existingPattern) {
+    private VBox createContent(PnrPatternConfig.MessagePattern existingPattern) {
         VBox content = new VBox(10);
         content.setPadding(new Insets(10));
 
@@ -160,7 +160,7 @@ public class PatternEditDialog extends Dialog<ApiPatternConfig.MessagePattern> {
         }
     }
 
-    private void loadExistingPattern(ApiPatternConfig.MessagePattern pattern) {
+    private void loadExistingPattern(PnrPatternConfig.MessagePattern pattern) {
         nameField.setText(pattern.getName());
         typeComboBox.setValue(pattern.getType());
         valueField.setText(pattern.getValue());
@@ -169,7 +169,7 @@ public class PatternEditDialog extends Dialog<ApiPatternConfig.MessagePattern> {
         // Load conditions
         conditionData.clear();
         if (pattern.getConditions() != null) {
-            for (ApiPatternConfig.MessagePattern.Condition condition : pattern.getConditions()) {
+            for (PnrPatternConfig.MessagePattern.Condition condition : pattern.getConditions()) {
                 conditionData.add(new ConditionRow(condition.getType(), condition.getValue()));
             }
         }
@@ -199,20 +199,20 @@ public class PatternEditDialog extends Dialog<ApiPatternConfig.MessagePattern> {
         alert.showAndWait();
     }
 
-    private ApiPatternConfig.MessagePattern createPatternFromInput() {
+    private PnrPatternConfig.MessagePattern createPatternFromInput() {
         String name = nameField.getText().trim();
         String type = typeComboBox.getValue();
         String value = valueField.getText().trim();
         boolean enabled = enabledCheckBox.isSelected();
 
-        ApiPatternConfig.MessagePattern pattern = new ApiPatternConfig.MessagePattern(name, type, value, enabled);
+        PnrPatternConfig.MessagePattern pattern = new PnrPatternConfig.MessagePattern(name, type, value, enabled);
 
         // Add conditions for multiple type
         if ("multiple".equals(type)) {
-            List<ApiPatternConfig.MessagePattern.Condition> conditions = new ArrayList<>();
+            List<PnrPatternConfig.MessagePattern.Condition> conditions = new ArrayList<>();
             for (ConditionRow row : conditionData) {
                 if (!row.getValue().trim().isEmpty()) {
-                    conditions.add(new ApiPatternConfig.MessagePattern.Condition(row.getType(), row.getValue()));
+                    conditions.add(new PnrPatternConfig.MessagePattern.Condition(row.getType(), row.getValue()));
                 }
             }
             pattern.setConditions(conditions);

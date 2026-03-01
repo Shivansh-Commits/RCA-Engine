@@ -2,6 +2,8 @@ package com.l3.logparser.pnr.parser;
 
 import com.l3.logparser.pnr.model.*;
 import com.l3.logparser.enums.MessageType;
+import com.l3.logparser.config.AdvancedParserConfig;
+import com.l3.logparser.config.PnrPatternConfig;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -30,6 +32,22 @@ public class PnrEdifactParser {
 
     // Track if we've logged separator details for current batch (to avoid spam)
     private boolean separatorDetailsLogged = false;
+
+    // Advanced parser configuration
+    private AdvancedParserConfig advancedConfig;
+
+    public PnrEdifactParser() {
+        // Initialize with default configuration
+        this.advancedConfig = new AdvancedParserConfig();
+    }
+
+    /**
+     * Set advanced parser configuration
+     * @param config The advanced parser configuration
+     */
+    public void setAdvancedConfig(AdvancedParserConfig config) {
+        this.advancedConfig = config;
+    }
 
     /**
      * Set progress callback for real-time logging updates
@@ -129,16 +147,69 @@ public class PnrEdifactParser {
 
     /**
      * Check if log entry contains a PNR message (input or output)
+     * Uses configurable patterns from AdvancedParserConfig
      */
     private boolean containsPnrMessage(String logEntry) {
-        return logEntry.contains("UNA:") || 
-               (logEntry.contains("UNB+") && logEntry.contains("PNRGOV")) ||
-               logEntry.contains("PNRGOV_PNR_PUSH") ||
-               (logEntry.contains("Message body") && logEntry.contains("PNRGOV")) ||
-               // Output messages from MessageForwarder.log
-               (logEntry.contains("Forward.BUSINESS_RULES_PROCESSOR") && logEntry.contains("Message body")) ||
-               (logEntry.contains("TO.NO.PNR.OUT") && logEntry.contains("UNA")) ||
-               (logEntry.contains("TO.NO.PNR.OUT") && logEntry.contains("UNB+"));
+        if (advancedConfig == null || advancedConfig.getPnrConfig() == null) {
+            // Fallback to hardcoded patterns if config is not available
+            return logEntry.contains("UNA:") || 
+                   (logEntry.contains("UNB+") && logEntry.contains("PNRGOV")) ||
+                   logEntry.contains("PNRGOV_PNR_PUSH") ||
+                   (logEntry.contains("Message body") && logEntry.contains("PNRGOV")) ||
+                   (logEntry.contains("Forward.BUSINESS_RULES_PROCESSOR") && logEntry.contains("Message body")) ||
+                   (logEntry.contains("TO.NO.PNR.OUT") && logEntry.contains("UNA")) ||
+                   (logEntry.contains("TO.NO.PNR.OUT") && logEntry.contains("UNB+"));
+        }
+
+        // Use patterns from advanced configuration
+        List<PnrPatternConfig.MessagePattern> patterns = advancedConfig.getPnrConfig().getMessageStartPatterns();
+        
+        for (PnrPatternConfig.MessagePattern pattern : patterns) {
+            if (!pattern.isEnabled()) {
+                continue; // Skip disabled patterns
+            }
+
+            if (matchesPattern(logEntry, pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if log entry matches a specific pattern
+     */
+    private boolean matchesPattern(String logEntry, PnrPatternConfig.MessagePattern pattern) {
+        String type = pattern.getType();
+
+        if ("contains".equals(type)) {
+            return logEntry.contains(pattern.getValue());
+        } else if ("startsWith".equals(type)) {
+            return logEntry.trim().startsWith(pattern.getValue());
+        } else if ("multiple".equals(type)) {
+            // For multiple conditions, all conditions must match
+            List<PnrPatternConfig.MessagePattern.Condition> conditions = pattern.getConditions();
+            if (conditions == null || conditions.isEmpty()) {
+                return false;
+            }
+
+            for (PnrPatternConfig.MessagePattern.Condition condition : conditions) {
+                if ("contains".equals(condition.getType())) {
+                    if (!logEntry.contains(condition.getValue())) {
+                        return false;
+                    }
+                } else if ("startsWith".equals(condition.getType())) {
+                    if (!logEntry.trim().startsWith(condition.getValue())) {
+                        return false;
+                    }
+                }
+            }
+
+            return true; // All conditions matched
+        }
+
+        return false;
     }
 
     /**

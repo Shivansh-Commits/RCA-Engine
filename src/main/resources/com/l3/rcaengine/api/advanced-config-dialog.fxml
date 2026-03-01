@@ -87,15 +87,39 @@
                     </content>
                 </Tab>
 
-                <!-- PNR Configuration Tab (Disabled for now) -->
-                <Tab text="PNR Configuration" closable="false" disable="true">
+                <!-- PNR Configuration Tab -->
+                <Tab text="PNR Configuration" closable="false">
                     <content>
                         <VBox spacing="10.0">
                             <padding>
                                 <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
                             </padding>
                             <children>
-                                <Label style="-fx-font-size: 16px; -fx-text-fill: gray;" text="PNR Configuration will be available in future versions." />
+                                <!-- Message Start Patterns Section -->
+                                <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="PNR Message Start Patterns" />
+                                <TableView fx:id="pnrPatternsTable" prefHeight="300.0" VBox.vgrow="ALWAYS">
+                                    <columns>
+                                        <TableColumn fx:id="pnrPatternNameColumn" prefWidth="150.0" text="Pattern Name" />
+                                        <TableColumn fx:id="pnrPatternTypeColumn" prefWidth="120.0" text="Type" />
+                                        <TableColumn fx:id="pnrPatternValueColumn" prefWidth="350.0" text="Value/Description" />
+                                        <TableColumn fx:id="pnrPatternEnabledColumn" prefWidth="80.0" text="Enabled" />
+                                    </columns>
+                                </TableView>
+
+                                <!-- Pattern Management Buttons -->
+                                <HBox spacing="10.0">
+                                    <children>
+                                        <Button fx:id="addPnrPatternButton" onAction="#onAddPnrPattern" text="Add Pattern" />
+                                        <Button fx:id="editPnrPatternButton" onAction="#onEditPnrPattern" text="Edit Pattern" />
+                                        <Button fx:id="removePnrPatternButton" onAction="#onRemovePnrPattern" text="Remove Pattern" />
+                                    </children>
+                                </HBox>
+
+                                <!-- Information Label -->
+                                <Label style="-fx-font-size: 12px; -fx-text-fill: gray;" 
+                                       text="Note: PNR messages use TVL segments for flight details. Patterns should match log entries containing PNR EDIFACT messages." 
+                                       wrapText="true" />
+
                             </children>
                         </VBox>
                     </content>

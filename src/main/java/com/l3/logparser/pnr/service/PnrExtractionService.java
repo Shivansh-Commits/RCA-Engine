@@ -3,6 +3,7 @@ package com.l3.logparser.pnr.service;
 import com.l3.logparser.pnr.model.*;
 import com.l3.logparser.pnr.parser.PnrEdifactParser;
 import com.l3.logparser.enums.MessageType;
+import com.l3.logparser.config.AdvancedParserConfig;
 
 import java.io.*;
 import java.nio.file.*;
@@ -33,6 +34,16 @@ public class PnrExtractionService {
 
     public PnrExtractionService() {
         this.parser = new PnrEdifactParser();
+    }
+
+    /**
+     * Set advanced parser configuration
+     * @param config The advanced parser configuration
+     */
+    public void setAdvancedConfig(AdvancedParserConfig config) {
+        if (parser != null) {
+            parser.setAdvancedConfig(config);
+        }
     }
 
     /**

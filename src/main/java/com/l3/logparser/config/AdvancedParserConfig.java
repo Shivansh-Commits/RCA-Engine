@@ -64,8 +64,8 @@ public class AdvancedParserConfig {
             // Load API configuration
             apiConfig.loadFromProperties(props);
 
-            // Load PNR configuration (when implemented)
-            // pnrConfig.loadFromProperties(props);
+            // Load PNR configuration
+            pnrConfig.loadFromProperties(props);
 
         } catch (Exception e) {
             System.err.println("Warning: Could not load advanced parser configuration: " + e.getMessage());
@@ -88,8 +88,8 @@ public class AdvancedParserConfig {
             // Save API configuration
             apiConfig.saveToProperties(props);
 
-            // Save PNR configuration (when implemented)
-            // pnrConfig.saveToProperties(props);
+            // Save PNR configuration
+            pnrConfig.saveToProperties(props);
 
             // Save to file with comments
             try (FileOutputStream fos = new FileOutputStream(configFile.toFile())) {
