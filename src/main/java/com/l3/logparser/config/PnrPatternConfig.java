@@ -26,11 +26,11 @@ public class PnrPatternConfig {
         messageStartPatterns.clear();
 
         // Add patterns based on containsPnrMessage() in PnrEdifactParser
-        messageStartPatterns.add(new MessagePattern("UNA_PATTERN", "contains", "UNA:", true));
+        messageStartPatterns.add(new MessagePattern("UNA_PATTERN", "contains", "UNA", true));
         
-        // UNB+ with PNRGOV
+        // UNB with PNRGOV (separator is dynamic, so don't hardcode +)
         MessagePattern unbPnrgov = new MessagePattern("UNB_PNRGOV", "multiple", "", true);
-        unbPnrgov.addCondition("contains", "UNB+");
+        unbPnrgov.addCondition("contains", "UNB");
         unbPnrgov.addCondition("contains", "PNRGOV");
         messageStartPatterns.add(unbPnrgov);
         
@@ -42,15 +42,16 @@ public class PnrPatternConfig {
         messageBodyPnrgov.addCondition("contains", "PNRGOV");
         messageStartPatterns.add(messageBodyPnrgov);
         
-        // Output message patterns
-        MessagePattern outputUna = new MessagePattern("TO_NO_PNR_OUT_UNA", "multiple", "", true);
-        outputUna.addCondition("contains", "TO.NO.PNR.OUT");
-        outputUna.addCondition("contains", "UNA");
+        // Output message patterns - INFO with Message body [UNA
+        MessagePattern outputUna = new MessagePattern("MessageForwarder_UNA", "multiple", "", true);
+        outputUna.addCondition("contains", "INFO");
+        outputUna.addCondition("contains", "Message body [UNA");
         messageStartPatterns.add(outputUna);
         
-        MessagePattern outputUnb = new MessagePattern("TO_NO_PNR_OUT_UNB", "multiple", "", true);
-        outputUnb.addCondition("contains", "TO.NO.PNR.OUT");
-        outputUnb.addCondition("contains", "UNB+");
+        // Output message patterns - INFO with Message body [UNB
+        MessagePattern outputUnb = new MessagePattern("MessageForwarder_UNB", "multiple", "", true);
+        outputUnb.addCondition("contains", "INFO");
+        outputUnb.addCondition("contains", "Message body [UNB");
         messageStartPatterns.add(outputUnb);
         
         // Forward.BUSINESS_RULES_PROCESSOR patterns
