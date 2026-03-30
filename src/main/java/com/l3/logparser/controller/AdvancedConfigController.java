@@ -2,6 +2,7 @@ package com.l3.logparser.controller;
 
 import com.l3.logparser.config.AdvancedParserConfig;
 import com.l3.logparser.config.ApiPatternConfig;
+import com.l3.logparser.config.PnrPatternConfig;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -11,7 +12,6 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.stage.Stage;
-import javafx.util.converter.BooleanStringConverter;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ import java.util.ResourceBundle;
  */
 public class AdvancedConfigController implements Initializable {
 
-    // Pattern Management
+    // API Pattern Management
     @FXML private TableView<PatternTableRow> patternsTable;
     @FXML private TableColumn<PatternTableRow, String> patternNameColumn;
     @FXML private TableColumn<PatternTableRow, String> patternTypeColumn;
@@ -32,6 +32,16 @@ public class AdvancedConfigController implements Initializable {
     @FXML private Button addPatternButton;
     @FXML private Button removePatternButton;
     @FXML private Button editPatternButton;
+
+    // PNR Pattern Management
+    @FXML private TableView<PnrPatternTableRow> pnrPatternsTable;
+    @FXML private TableColumn<PnrPatternTableRow, String> pnrPatternNameColumn;
+    @FXML private TableColumn<PnrPatternTableRow, String> pnrPatternTypeColumn;
+    @FXML private TableColumn<PnrPatternTableRow, String> pnrPatternValueColumn;
+    @FXML private TableColumn<PnrPatternTableRow, Boolean> pnrPatternEnabledColumn;
+    @FXML private Button addPnrPatternButton;
+    @FXML private Button removePnrPatternButton;
+    @FXML private Button editPnrPatternButton;
 
     // Segment Codes
     @FXML private TextField bgmPassengerField;
@@ -49,12 +59,14 @@ public class AdvancedConfigController implements Initializable {
 
     private AdvancedParserConfig config;
     private ObservableList<PatternTableRow> patternData;
+    private ObservableList<PnrPatternTableRow> pnrPatternData;
     private boolean saved = false;
     private Stage dialogStage;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         setupPatternsTable();
+        setupPnrPatternsTable();
         this.config = new AdvancedParserConfig();
         loadConfigurationData();
     }
@@ -123,12 +135,66 @@ public class AdvancedConfigController implements Initializable {
         patternsTable.setEditable(true);
     }
 
+    private void setupPnrPatternsTable() {
+        pnrPatternData = FXCollections.observableArrayList();
+        pnrPatternsTable.setItems(pnrPatternData);
+
+        // Configure columns
+        pnrPatternNameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+        pnrPatternNameColumn.setCellFactory(TextFieldTableCell.forTableColumn());
+        pnrPatternNameColumn.setOnEditCommit(event -> {
+            PnrPatternTableRow row = event.getRowValue();
+            row.setName(event.getNewValue());
+        });
+
+        pnrPatternTypeColumn.setCellValueFactory(new PropertyValueFactory<>("type"));
+        pnrPatternValueColumn.setCellValueFactory(new PropertyValueFactory<>("value"));
+
+        pnrPatternEnabledColumn.setCellValueFactory(new PropertyValueFactory<>("enabled"));
+        pnrPatternEnabledColumn.setCellFactory(col -> {
+            TableCell<PnrPatternTableRow, Boolean> cell = new TableCell<PnrPatternTableRow, Boolean>() {
+                private final CheckBox checkBox = new CheckBox();
+
+                {
+                    checkBox.setOnAction(event -> {
+                        PnrPatternTableRow row = getTableRow().getItem();
+                        if (row != null) {
+                            row.setEnabled(checkBox.isSelected());
+                        }
+                    });
+                }
+
+                @Override
+                protected void updateItem(Boolean item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty) {
+                        setGraphic(null);
+                    } else {
+                        checkBox.setSelected(item != null && item);
+                        setGraphic(checkBox);
+                    }
+                }
+            };
+            return cell;
+        });
+
+        // Enable table editing
+        pnrPatternsTable.setEditable(true);
+    }
+
     private void loadConfigurationData() {
-        // Load patterns
+        // Load API patterns
         patternData.clear();
         List<ApiPatternConfig.MessagePattern> patterns = config.getApiConfig().getMessageStartPatterns();
         for (ApiPatternConfig.MessagePattern pattern : patterns) {
             patternData.add(new PatternTableRow(pattern));
+        }
+
+        // Load PNR patterns
+        pnrPatternData.clear();
+        List<PnrPatternConfig.MessagePattern> pnrPatterns = config.getPnrConfig().getMessageStartPatterns();
+        for (PnrPatternConfig.MessagePattern pattern : pnrPatterns) {
+            pnrPatternData.add(new PnrPatternTableRow(pattern));
         }
 
         // Load segment codes
@@ -171,6 +237,34 @@ public class AdvancedConfigController implements Initializable {
     }
 
     @FXML
+    private void onAddPnrPattern() {
+        PnrPatternEditDialog dialog = new PnrPatternEditDialog(null);
+        dialog.showAndWait().ifPresent(pattern -> {
+            pnrPatternData.add(new PnrPatternTableRow(pattern));
+        });
+    }
+
+    @FXML
+    private void onRemovePnrPattern() {
+        PnrPatternTableRow selected = pnrPatternsTable.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            pnrPatternData.remove(selected);
+        }
+    }
+
+    @FXML
+    private void onEditPnrPattern() {
+        PnrPatternTableRow selected = pnrPatternsTable.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            PnrPatternEditDialog dialog = new PnrPatternEditDialog(selected.toMessagePattern());
+            dialog.showAndWait().ifPresent(pattern -> {
+                selected.updateFromPattern(pattern);
+                pnrPatternsTable.refresh();
+            });
+        }
+    }
+
+    @FXML
     private void onSave() {
         if (saveConfiguration()) {
             saved = true;
@@ -201,12 +295,19 @@ public class AdvancedConfigController implements Initializable {
 
     private boolean saveConfiguration() {
         try {
-            // Save patterns
+            // Save API patterns
             List<ApiPatternConfig.MessagePattern> patterns = new ArrayList<>();
             for (PatternTableRow row : patternData) {
                 patterns.add(row.toMessagePattern());
             }
             config.getApiConfig().setMessageStartPatterns(patterns);
+
+            // Save PNR patterns
+            List<PnrPatternConfig.MessagePattern> pnrPatterns = new ArrayList<>();
+            for (PnrPatternTableRow row : pnrPatternData) {
+                pnrPatterns.add(row.toMessagePattern());
+            }
+            config.getPnrConfig().setMessageStartPatterns(pnrPatterns);
 
             // Save segment codes
             ApiPatternConfig.SegmentCodes codes = config.getApiConfig().getSegmentCodes();
@@ -318,5 +419,73 @@ public class AdvancedConfigController implements Initializable {
 
         public List<ApiPatternConfig.MessagePattern.Condition> getConditions() { return conditions; }
         public void setConditions(List<ApiPatternConfig.MessagePattern.Condition> conditions) { this.conditions = conditions; }
+    }
+
+    /**
+     * Table row representation of a PNR message pattern
+     */
+    public static class PnrPatternTableRow {
+        private SimpleStringProperty name;
+        private SimpleStringProperty type;
+        private SimpleStringProperty value;
+        private boolean enabled;
+        private List<PnrPatternConfig.MessagePattern.Condition> conditions;
+
+        public PnrPatternTableRow(PnrPatternConfig.MessagePattern pattern) {
+            this.name = new SimpleStringProperty(pattern.getName());
+            this.type = new SimpleStringProperty(pattern.getType());
+            this.enabled = pattern.isEnabled();
+            this.conditions = new ArrayList<>(pattern.getConditions());
+
+            String displayValue;
+            if ("multiple".equals(pattern.getType()) && pattern.getConditions() != null && !pattern.getConditions().isEmpty()) {
+                displayValue = pattern.getConditions().size() + " condition(s)";
+            } else {
+                displayValue = pattern.getValue() != null ? pattern.getValue() : "";
+            }
+            this.value = new SimpleStringProperty(displayValue);
+        }
+
+        public void updateFromPattern(PnrPatternConfig.MessagePattern pattern) {
+            this.name.set(pattern.getName());
+            this.type.set(pattern.getType());
+            this.enabled = pattern.isEnabled();
+            this.conditions = new ArrayList<>(pattern.getConditions());
+
+            String displayValue;
+            if ("multiple".equals(pattern.getType()) && pattern.getConditions() != null && !pattern.getConditions().isEmpty()) {
+                displayValue = pattern.getConditions().size() + " condition(s)";
+            } else {
+                displayValue = pattern.getValue() != null ? pattern.getValue() : "";
+            }
+            this.value.set(displayValue);
+        }
+
+        public PnrPatternConfig.MessagePattern toMessagePattern() {
+            PnrPatternConfig.MessagePattern pattern = new PnrPatternConfig.MessagePattern(
+                getName(), getType(), getValue(), isEnabled()
+            );
+            pattern.setConditions(new ArrayList<>(conditions));
+            return pattern;
+        }
+
+        // Property getters for table binding
+        public String getName() { return name.get(); }
+        public void setName(String name) { this.name.set(name); }
+        public SimpleStringProperty nameProperty() { return name; }
+
+        public String getType() { return type.get(); }
+        public void setType(String type) { this.type.set(type); }
+        public SimpleStringProperty typeProperty() { return type; }
+
+        public String getValue() { return value.get(); }
+        public void setValue(String value) { this.value.set(value); }
+        public SimpleStringProperty valueProperty() { return value; }
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public List<PnrPatternConfig.MessagePattern.Condition> getConditions() { return conditions; }
+        public void setConditions(List<PnrPatternConfig.MessagePattern.Condition> conditions) { this.conditions = conditions; }
     }
 }
